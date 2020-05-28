@@ -103,3 +103,7 @@ TARGET_LINK_LIBRARIES(test_TimeStepper   	solvers)
 ADD_EXECUTABLE(test_TWIGL                   test_TWIGL.cc)
 TARGET_LINK_LIBRARIES(test_TWIGL            solvers)
 #ADD_TEST(test_MGCMFD             		test_MGCMFD 0)
+
+ADD_EXECUTABLE(test_SlabReactor          	test_SlabReactor.cc)
+TARGET_LINK_LIBRARIES(test_SlabReactor  	solvers)
+ADD_TEST(test_SlabReactor            		test_SlabReactor 0)
