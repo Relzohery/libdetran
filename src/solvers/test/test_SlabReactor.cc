@@ -1,5 +1,5 @@
 #define TEST_LIST               \
-        FUNC(test_SlabReactor)
+        FUNC(test_projection)
 
 
 #include "Mesh1D.hh"
@@ -7,6 +7,8 @@
 #include "TestDriver.hh"
 #include "callow/utils/Initialization.hh"
 #include "callow/vector/Vector.hh"
+#include "callow/matrix/Matrix.hh"
+#include "callow/matrix/MatrixDense.hh"
 #include <vector>
 #include <iostream>
 
@@ -18,6 +20,15 @@
 #include "kinetics/LinearExternalSource.hh"
 #include "kinetics/LinearMaterial.hh"
 #include "solvers/EigenvalueManager.hh"
+
+#include "EigenArnoldi.hh"
+#include "callow/solver/EigenSolverCreator.hh"
+#include "utilities/InputDB.hh"
+#include <string>
+#include "FixedSourceManager.hh"
+#include "solvers/eigen/EnergyDependentEigenLHS.hh"
+#include <iostream>
+#include <fstream>
 
 
 
@@ -174,7 +185,7 @@ Mesh1D::SP_mesh get_mesh(Mesh1D::size_t fmm = 1)
 
 }
 
-int test_SlabReactor(int argc, char *argv[])
+InputDB::SP_input get_input()
 {
   InputDB::SP_input inp(new InputDB("Slab Reactor"));
   inp->put<std::string>("problem_type", "eigenvalue");
@@ -196,8 +207,12 @@ int test_SlabReactor(int argc, char *argv[])
   inp->put<std::string>("bc_east",                    "reflect");
   inp->put<int>("quad_number_polar_octant",   16);
 
+  return inp;
+}
 
-
+int test_SlabReactor_fom(int argc, char *argv[])
+{
+  InputDB::SP_input inp = get_input();
   Mesh1D::SP_mesh mesh = get_mesh();
   Material::SP_material mat = get_mat();
   EigenvalueManager<_1D> manager(inp, mat, mesh);
@@ -208,4 +223,132 @@ int test_SlabReactor(int argc, char *argv[])
 
   return 0;
 }
+
+int test_projection(int argc, char *argv[])
+{
+  typedef typename Eigensolver<_1D>::Fixed_T              Fixed_T;
+  typedef typename Eigensolver<_1D>::SP_solver            SP_solver;
+  typedef typename Fixed_T::SP_manager                  SP_mg_solver;
+  typedef EnergyIndependentEigenOperator<_1D>         Operator_T;
+  typedef typename Operator_T::SP_operator          SP_operator;
+  typedef EnergyDependentEigenLHS<_1D>                LHS_Operator_T;
+  typename LHS_Operator_T::SP_operator B;
+
+
+  InputDB::SP_input input = get_input();
+  input->put<std::string>("outer_solver", "GMRES");
+  input->put<std::string>("eigen_solver", "GD");
+
+  Mesh1D::SP_mesh mesh = get_mesh();
+  Material::SP_material mat = get_mat();
+
+  SP_mg_solver mg_solver;
+  mg_solver = new FixedSourceManager<_1D>(input, mat, mesh, true, true);
+  mg_solver->setup();
+  mg_solver->set_solver();
+
+  SP_operator A;
+  A = new Operator_T(mg_solver);
+
+  //B = new LHS_Operator_T(mg_solver);
+  int m = A->number_columns();
+  int n =  A->number_rows();
+
+  std::cout << m << "\n";
+  std::cout << n << "\n";
+
+  // get the basis
+  ifstream infile;
+  infile.open("/home/rabab/Research/detran_demo/steady_state/"
+              "slab_reactor/fission_density_basis_assem0", ios::binary | ios::in);
+  int r = 5;
+
+  double U[20][r];
+
+  //callow::Matrix::SP_matrix U;
+  //U = new callow::Matrix(20, 5);
+  //U->preallocate(n*5);
+
+  infile.seekg(0);
+  infile.read((char *) &U, sizeof(U)); // read the number of element
+
+  callow::MatrixDense::SP_matrix A_r1;
+  A_r1 = new callow::MatrixDense(n, 5);
+
+  callow::Vector u1(n, 0.0);
+  callow::Vector u2(n, 0.0);
+  callow::Vector u3(n, 0.0);
+  callow::Vector u4(n, 0.0);
+  callow::Vector u5(n, 0.0);
+
+
+
+  callow::Vector y(n, 0.0);
+  for (int i=0; i< n; i++)
+  {
+   u1[i] = U[i][0];
+   u2[i] = U[i][1];
+   u3[i] = U[i][2];
+   u4[i] = U[i][3];
+   u5[i] = U[i][4];
+  }
+
+  // r=0
+  A->multiply(u1, y);
+  A_r1->insert_col(0, y, A_r1->INSERT);
+
+  A->multiply(u2, y);
+  A_r1->insert_col(1, y, A_r1->INSERT);
+
+  A->multiply(u3, y);
+  A_r1->insert_col(2, y, A_r1->INSERT);
+
+  A->multiply(u4, y);
+  A_r1->insert_col(3, y, A_r1->INSERT);
+
+  A->multiply(u5, y);
+  A_r1->insert_col(4, y, A_r1->INSERT);
+
+ // A_r1->display();
+
+
+ // now do the multiplication by UT
+  callow::MatrixDense::SP_matrix A_r;
+  A_r = new callow::MatrixDense(5, 5);
+
+  for (int i=0; i<5; i++)
+  {
+    for (int k=0; k<5 ; k++)
+    {
+     for (int j=0; j<20; j++)
+     {
+       double s =  A_r1(j, k);
+       double v = U[j][i]*s;
+       A_r->insert(i, k, v, 1);
+     }
+    }
+  }
+
+
+
+
+
+
+
+
+ // function overload
+  // matrix-matrix multiplication for a dense matrix
+
+
+  //
+
+
+  //
+
+//
+
+return 0;
+
+}
+
 
