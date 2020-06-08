@@ -106,4 +106,12 @@ TARGET_LINK_LIBRARIES(test_TWIGL            solvers)
 
 ADD_EXECUTABLE(test_SlabReactor          	test_SlabReactor.cc)
 TARGET_LINK_LIBRARIES(test_SlabReactor  	solvers)
-ADD_TEST(test_SlabReactor            		test_SlabReactor 0)
+ADD_TEST(test_projection          		    test_SlabReactor 0)
+ADD_TEST(test_SlabReactor_fom           	test_SlabReactor 1)
+
+
+ADD_EXECUTABLE(test_reduced_eigenvalue          	test_reduced_eigenvalue.cc)
+TARGET_LINK_LIBRARIES(test_reduced_eigenvalue  	solvers)
+ADD_TEST(test_reduced_eigenvalue         		    test_reduced_eigenvalue 0)
+
+
