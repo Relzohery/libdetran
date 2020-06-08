@@ -1,5 +1,7 @@
 #define TEST_LIST               \
-        FUNC(test_projection)
+        FUNC(test_projection)   \
+	FUNC(test_SlabReactor_fom)\
+
 
 
 #include "Mesh1D.hh"
@@ -11,9 +13,6 @@
 #include "callow/matrix/MatrixDense.hh"
 #include <vector>
 #include <iostream>
-
-
-
 #include "callow/utils/Initialization.hh"
 #include "callow/vector/Vector.hh"
 #include "boundary/BoundarySN.hh"
@@ -196,11 +195,11 @@ InputDB::SP_input get_input()
   inp->put<int>("inner_max_iters",            1000);
   inp->put<double>("inner_tolerance",            1e-7);
   inp->put<int>("inner_print_level",          0);
-  inp->put<std::string>("outer_solver",               "GS");
+  inp->put<std::string>("outer_solver",              "GMRES");
   inp->put<int>("outer_max_iters",            1000);
   inp->put<double>("outer_tolerance",            1e-7);
   inp->put<int>("outer_print_level",          0);
-  inp->put<std::string>("eigen_solver",               "PI");
+  inp->put<std::string>("eigen_solver",               "arnoldi");
   inp->put<int>("eigen_max_iters",            200);
   inp->put<double>("eigen_tolerance",            1e-7);
   inp->put<std::string>("bc_west",                    "reflect");
@@ -218,10 +217,21 @@ int test_SlabReactor_fom(int argc, char *argv[])
   EigenvalueManager<_1D> manager(inp, mat, mesh);
   manager.solve();
   State::SP_state ic = manager.state();
+  std::cout << "&&&&&&&&&&&&&&&&&&&&&&&&&&&" << "\n";
+  std::cout << "manager.state()->eigenvalue()" << "\n";
 
-  TEST(soft_equiv(1.329576914, manager.state()->eigenvalue(), 1.0e-9));
+  TEST(soft_equiv(1.329576914, manager.state()->eigenvalue(), 1.0e-4));
 
   return 0;
+}
+
+int from_vecror_to_double(callow::Vector v2, double v[])
+{
+ for (int i=0; i<v2.size(); i++)
+ {
+   v[i] = v2[i];
+ }
+return 0;
 }
 
 int test_projection(int argc, char *argv[])
@@ -237,25 +247,34 @@ int test_projection(int argc, char *argv[])
 
   InputDB::SP_input input = get_input();
   input->put<std::string>("outer_solver", "GMRES");
-  input->put<std::string>("eigen_solver", "GD");
+  input->put<std::string>("eigen_solver", "arnoldi");
 
   Mesh1D::SP_mesh mesh = get_mesh();
   Material::SP_material mat = get_mat();
 
   SP_mg_solver mg_solver;
-  mg_solver = new FixedSourceManager<_1D>(input, mat, mesh, true, true);
+  mg_solver = new FixedSourceManager<_1D>(input, mat, mesh, false, true);
   mg_solver->setup();
   mg_solver->set_solver();
 
   SP_operator A;
   A = new Operator_T(mg_solver);
+  A->compute_explicit("EnergyIndependentEigenOperator");
+  int m = A->number_columns();
+  int n = A->number_rows();
+
+  std::cout << m << " value of m" << "\n";
+  std::cout << n << " value of n" << "\n";
+
+
+
+ //A->print_matlab("operator_A_1");
+
 
   //B = new LHS_Operator_T(mg_solver);
-  int m = A->number_columns();
-  int n =  A->number_rows();
+  //B->compute_explicit("operator_B_1");
+  //B->print_matlab("operator_B_1");
 
-  std::cout << m << "\n";
-  std::cout << n << "\n";
 
   // get the basis
   ifstream infile;
@@ -272,8 +291,11 @@ int test_projection(int argc, char *argv[])
   infile.seekg(0);
   infile.read((char *) &U, sizeof(U)); // read the number of element
 
-  callow::MatrixDense::SP_matrix A_r1;
-  A_r1 = new callow::MatrixDense(n, 5);
+  std::cout << U[19][4] << "&&&&&&" << "\n";
+  std::cout << U[0][0] << "&&&&&&" << "\n";
+
+ // callow::MatrixDense A_r1;
+  callow::MatrixDense A_r1(n, 5);
 
   callow::Vector u1(n, 0.0);
   callow::Vector u2(n, 0.0);
@@ -284,6 +306,7 @@ int test_projection(int argc, char *argv[])
 
 
   callow::Vector y(n, 0.0);
+  double yy[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 ,0, 0, 0, 0, 0};
   for (int i=0; i< n; i++)
   {
    u1[i] = U[i][0];
@@ -293,25 +316,47 @@ int test_projection(int argc, char *argv[])
    u5[i] = U[i][4];
   }
 
+
+  callow::Vector y2(n, 0.0);
+  //callow::Vector x(n, 1.0);
+
+  //A->multiply(x, y2);
+
   // r=0
   A->multiply(u1, y);
-  A_r1->insert_col(0, y, A_r1->INSERT);
+  from_vecror_to_double(y, yy);
+  A_r1.insert_col(0, yy, 0);
+
+  for (int i=0; i<20; i++)
+ {
+   std::cout << yy[i] << "  " << i << "\n";
+ }
+  std::cout << "^^^^^^^^^^^^^ next vector^^^^^^^^^^^^" << "\n";
 
   A->multiply(u2, y);
-  A_r1->insert_col(1, y, A_r1->INSERT);
+  from_vecror_to_double(y, yy);
+  A_r1.insert_col(1, yy, 0);
+
+
+
 
   A->multiply(u3, y);
-  A_r1->insert_col(2, y, A_r1->INSERT);
+  from_vecror_to_double(y, yy);
+  A_r1.insert_col(2, yy, 0);
 
   A->multiply(u4, y);
-  A_r1->insert_col(3, y, A_r1->INSERT);
+  from_vecror_to_double(y, yy);
+  A_r1.insert_col(3, yy, 0);
 
   A->multiply(u5, y);
-  A_r1->insert_col(4, y, A_r1->INSERT);
+  from_vecror_to_double(y, yy);
+
+  A_r1.insert_col(4, yy, 0);
+  A_r1.assemble();
+
+  A_r1.print_matlab("reduced_Ar11");
 
  // A_r1->display();
-
-
  // now do the multiplication by UT
   callow::MatrixDense::SP_matrix A_r;
   A_r = new callow::MatrixDense(5, 5);
@@ -322,30 +367,16 @@ int test_projection(int argc, char *argv[])
     {
      for (int j=0; j<20; j++)
      {
-       double s =  A_r1(j, k);
-       double v = U[j][i]*s;
+       double v = U[j][i]*A_r1(j, k);
+       //std::cout << U[j][i] << " & ";
        A_r->insert(i, k, v, 1);
      }
     }
   }
-
-
-
-
-
-
-
-
+ A_r->display();
+ A_r->print_matlab("reduced_A");
  // function overload
-  // matrix-matrix multiplication for a dense matrix
-
-
-  //
-
-
-  //
-
-//
+ // matrix-matrix multiplication for a dense matrix
 
 return 0;
 
