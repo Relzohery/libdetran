@@ -1,7 +1,8 @@
 #define TEST_LIST               \
-        FUNC(test_projection)   \
 	FUNC(test_SlabReactor_fom)\
-
+   	FUNC(test_Diffusion_Projection)\
+	FUNC(test_projection)\
+	FUNC(test_EnergyDependent_projection)\
 
 
 #include "Mesh1D.hh"
@@ -11,6 +12,7 @@
 #include "callow/vector/Vector.hh"
 #include "callow/matrix/Matrix.hh"
 #include "callow/matrix/MatrixDense.hh"
+#include "callow/solver/EigenSolverCreator.hh"
 #include <vector>
 #include <iostream>
 #include "callow/utils/Initialization.hh"
@@ -19,6 +21,10 @@
 #include "kinetics/LinearExternalSource.hh"
 #include "kinetics/LinearMaterial.hh"
 #include "solvers/EigenvalueManager.hh"
+#include "solvers/EigenvalueManager.hh"
+#include "solvers/mg/DiffusionLossOperator.hh"
+#include "solvers/mg/DiffusionGainOperator.hh"
+#include "Eigensolver.hh"
 
 #include "EigenArnoldi.hh"
 #include "callow/solver/EigenSolverCreator.hh"
@@ -70,7 +76,7 @@ Material::SP_material get_mat()
   mat->set_sigma_s(0, 0, 1, 0.0000);
   mat->set_sigma_s(0, 1, 0, 0.0380);
   mat->set_sigma_s(0, 1, 1, 1.4536);
-
+  mat->compute_diff_coef();                   ;
 
   // Material 1: Fuel I
   // Total
@@ -88,6 +94,8 @@ Material::SP_material get_mat()
   mat->set_sigma_s(1, 0, 1, 0.0000);
   mat->set_sigma_s(1, 1, 0, 0.0161);
   mat->set_sigma_s(1, 1, 1, 0.9355);
+  mat->compute_diff_coef();                   ;
+
 
   // Material 3: Fuel II
 
@@ -106,6 +114,8 @@ Material::SP_material get_mat()
   mat->set_sigma_s(2, 0, 1, 0.0000);
   mat->set_sigma_s(2, 1, 0, 0.0156);
   mat->set_sigma_s(2, 1, 1, 0.9014);
+  mat->compute_diff_coef();                   ;
+
 
   // Material 4: Fuel II + Gd
 
@@ -124,6 +134,8 @@ Material::SP_material get_mat()
   mat->set_sigma_s(3, 0, 1, 0.0000);
   mat->set_sigma_s(3, 1, 0, 0.0136);
   mat->set_sigma_s(3, 1, 1, 0.5733);
+  mat->compute_diff_coef();                   ;
+
 
 
   mat->finalize();
@@ -199,7 +211,7 @@ InputDB::SP_input get_input()
   inp->put<int>("outer_max_iters",            1000);
   inp->put<double>("outer_tolerance",            1e-7);
   inp->put<int>("outer_print_level",          0);
-  inp->put<std::string>("eigen_solver",               "arnoldi");
+  inp->put<std::string>("eigen_solver",       "arnoldi");
   inp->put<int>("eigen_max_iters",            200);
   inp->put<double>("eigen_tolerance",            1e-7);
   inp->put<std::string>("bc_west",                    "reflect");
@@ -217,7 +229,6 @@ int test_SlabReactor_fom(int argc, char *argv[])
   EigenvalueManager<_1D> manager(inp, mat, mesh);
   manager.solve();
   State::SP_state ic = manager.state();
-  std::cout << "&&&&&&&&&&&&&&&&&&&&&&&&&&&" << "\n";
   std::cout << "manager.state()->eigenvalue()" << "\n";
 
   TEST(soft_equiv(1.329576914, manager.state()->eigenvalue(), 1.0e-4));
@@ -225,29 +236,20 @@ int test_SlabReactor_fom(int argc, char *argv[])
   return 0;
 }
 
-int from_vecror_to_double(callow::Vector v2, double v[])
-{
- for (int i=0; i<v2.size(); i++)
- {
-   v[i] = v2[i];
- }
-return 0;
-}
-
 int test_projection(int argc, char *argv[])
 {
   typedef typename Eigensolver<_1D>::Fixed_T              Fixed_T;
   typedef typename Eigensolver<_1D>::SP_solver            SP_solver;
-  typedef typename Fixed_T::SP_manager                  SP_mg_solver;
-  typedef EnergyIndependentEigenOperator<_1D>         Operator_T;
-  typedef typename Operator_T::SP_operator          SP_operator;
-  typedef EnergyDependentEigenLHS<_1D>                LHS_Operator_T;
+  typedef typename Fixed_T::SP_manager                    SP_mg_solver;
+  typedef EnergyIndependentEigenOperator<_1D>             Operator_T;
+  typedef typename Operator_T::SP_operator                SP_operator;
+  typedef EnergyDependentEigenLHS<_1D>                    LHS_Operator_T;
   typename LHS_Operator_T::SP_operator B;
 
 
   InputDB::SP_input input = get_input();
   input->put<std::string>("outer_solver", "GMRES");
-  input->put<std::string>("eigen_solver", "arnoldi");
+  input->put<std::string>("eigen_solver", "GD");
 
   Mesh1D::SP_mesh mesh = get_mesh();
   Material::SP_material mat = get_mat();
@@ -260,21 +262,9 @@ int test_projection(int argc, char *argv[])
   SP_operator A;
   A = new Operator_T(mg_solver);
   A->compute_explicit("EnergyIndependentEigenOperator");
+
   int m = A->number_columns();
   int n = A->number_rows();
-
-  std::cout << m << " value of m" << "\n";
-  std::cout << n << " value of n" << "\n";
-
-
-
- //A->print_matlab("operator_A_1");
-
-
-  //B = new LHS_Operator_T(mg_solver);
-  //B->compute_explicit("operator_B_1");
-  //B->print_matlab("operator_B_1");
-
 
   // get the basis
   ifstream infile;
@@ -284,83 +274,39 @@ int test_projection(int argc, char *argv[])
 
   double U[20][r];
 
-  //callow::Matrix::SP_matrix U;
-  //U = new callow::Matrix(20, 5);
-  //U->preallocate(n*5);
-
   infile.seekg(0);
   infile.read((char *) &U, sizeof(U)); // read the number of element
 
-  std::cout << U[19][4] << "&&&&&&" << "\n";
-  std::cout << U[0][0] << "&&&&&&" << "\n";
-
- // callow::MatrixDense A_r1;
   callow::MatrixDense A_r1(n, 5);
 
-  callow::Vector u1(n, 0.0);
-  callow::Vector u2(n, 0.0);
-  callow::Vector u3(n, 0.0);
-  callow::Vector u4(n, 0.0);
-  callow::Vector u5(n, 0.0);
+  vector<vector<double>> basis_vecs;
 
-
-
-  callow::Vector y(n, 0.0);
-  double yy[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0 ,0, 0, 0, 0, 0};
-  for (int i=0; i< n; i++)
+  for (int i=0; i<r; i++)
   {
-   u1[i] = U[i][0];
-   u2[i] = U[i][1];
-   u3[i] = U[i][2];
-   u4[i] = U[i][3];
-   u5[i] = U[i][4];
+   vector<double> v;
+   std::cout << i << "\n";
+   for (int j=0; j< n; j++)
+   {
+     std::cout << U[j][i] << "\n";
+     v.push_back(U[j][i]);
+   }
+    basis_vecs.push_back(v);
   }
 
+  callow::Vector y(n, 0.0);
+  for (int i=0; i<r; i++)
+  {
+    std::cout << i << "\n";
+    A->multiply(basis_vecs[i], y);
+    A_r1.insert_col(i, y, 0);
+  }
 
-  callow::Vector y2(n, 0.0);
-  //callow::Vector x(n, 1.0);
-
-  //A->multiply(x, y2);
-
-  // r=0
-  A->multiply(u1, y);
-  from_vecror_to_double(y, yy);
-  A_r1.insert_col(0, yy, 0);
-
-  for (int i=0; i<20; i++)
- {
-   std::cout << yy[i] << "  " << i << "\n";
- }
-  std::cout << "^^^^^^^^^^^^^ next vector^^^^^^^^^^^^" << "\n";
-
-  A->multiply(u2, y);
-  from_vecror_to_double(y, yy);
-  A_r1.insert_col(1, yy, 0);
-
-
-
-
-  A->multiply(u3, y);
-  from_vecror_to_double(y, yy);
-  A_r1.insert_col(2, yy, 0);
-
-  A->multiply(u4, y);
-  from_vecror_to_double(y, yy);
-  A_r1.insert_col(3, yy, 0);
-
-  A->multiply(u5, y);
-  from_vecror_to_double(y, yy);
-
-  A_r1.insert_col(4, yy, 0);
   A_r1.assemble();
-
   A_r1.print_matlab("reduced_Ar11");
 
- // A_r1->display();
  // now do the multiplication by UT
   callow::MatrixDense::SP_matrix A_r;
   A_r = new callow::MatrixDense(5, 5);
-
   for (int i=0; i<5; i++)
   {
     for (int k=0; k<5 ; k++)
@@ -373,13 +319,213 @@ int test_projection(int argc, char *argv[])
      }
     }
   }
- A_r->display();
  A_r->print_matlab("reduced_A");
- // function overload
- // matrix-matrix multiplication for a dense matrix
 
 return 0;
 
 }
 
+int test_EnergyDependent_projection(int argc, char *argv[])
+{
+  typedef typename Eigensolver<_1D>::Fixed_T              Fixed_T;
+  typedef typename Eigensolver<_1D>::SP_solver            SP_solver;
+  typedef typename Fixed_T::SP_manager                  SP_mg_solver;
+  typedef EnergyDependentEigenLHS<_1D>                LHS_Operator_T;
+  typename LHS_Operator_T::SP_operator B;
 
+  InputDB::SP_input input = get_input();
+  input->put<std::string>("outer_solver", "GMRES");
+  input->put<std::string>("eigen_solver", "GD");
+
+  Mesh1D::SP_mesh mesh = get_mesh();
+  Material::SP_material mat = get_mat();
+
+  SP_mg_solver mg_solver_ED;
+  mg_solver_ED = new FixedSourceManager<_1D>(input, mat, mesh, false, true);
+  mg_solver_ED->setup();
+  mg_solver_ED->set_solver();
+
+  B = new LHS_Operator_T(mg_solver_ED);
+  int m = B->number_columns();
+  int n = B->number_rows();
+
+  std::cout << m << " value of m" << "\n";
+  std::cout << n << " value of n" << "\n";
+
+  // get the basis
+  ifstream infile;
+  infile.open("/home/rabab/Research/detran_demo/steady_state/"
+              "slab_reactor/flux_basis_assem0_diff", ios::binary | ios::in);
+  int r = 10;
+
+  double U[n][r];
+
+  infile.seekg(0);
+  infile.read((char *) &U, sizeof(U)); // read the number of element
+
+  callow::MatrixDense B_r1(n, r);
+
+  vector<vector<double>> basis_vecs;
+
+  for (int i=0; i<r; i++)
+  {
+   vector<double> v;
+   for (int j=0; j< n; j++)
+   {
+     std::cout << U[j][i] << "\n";
+     v.push_back(U[j][i]);
+   }
+    basis_vecs.push_back(v);
+  }
+
+  callow::Vector y(n, 0.0);
+  for (int i=0; i<r; i++)
+  {
+    B->multiply(basis_vecs[i], y);
+    B_r1.insert_col(i, y, 0);
+  }
+
+ // now do the multiplication by UT
+  callow::MatrixDense::SP_matrix B_r;
+  B_r = new callow::MatrixDense(r, r);
+  for (int i=0; i<r; i++)
+  {
+    for (int k=0; k<r ; k++)
+    {
+     for (int j=0; j<m; j++)
+     {
+       double v = U[j][i]*B_r1(j, k);
+       B_r->insert(i, k, v, 1);
+     }
+    }
+  }
+  B_r->print_matlab("reduced_B");
+
+return 0;
+}
+
+int test_Diffusion_Projection(int argc, char *argv[])
+{
+ typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
+ typedef DiffusionGainOperator::SP_gainoperator    SP_gainoperator;
+ typedef callow::EigenSolver::SP_solver            SP_eigensolver;
+ typedef callow::EigenSolverCreator                Creator_T;
+ typedef callow::Vector::SP_vector                 SP_vector;
+
+ InputDB::SP_input inp = get_input();
+ Mesh1D::SP_mesh mesh = get_mesh();
+ Material::SP_material mat = get_mat();
+ inp->put<std::string>("equation",  "diffusion");
+
+ EigenvalueManager<_1D> manager(inp, mat, mesh);
+ manager.solve();
+ State::SP_state ic = manager.state();
+
+ std::cout << "manager.state()->eigenvalue()" << "\n";
+
+ SP_lossoperator A (new DiffusionLossOperator(inp, mat, mesh, false, 0.0, false, 1.0));
+ SP_gainoperator B (new DiffusionGainOperator(inp, mat, mesh, false));
+
+ A->print_matlab("loss_operator");
+ B->print_matlab("gain_operator");
+
+ // get the basis
+ ifstream infile;
+
+ infile.open("/home/rabab/Research/detran_demo/steady_state/"
+               "slab_reactor/flux_basis_assem0_diff", ios::binary | ios::in);
+
+ int m = A->number_columns();
+ int n = A->number_rows();
+
+ int r = 10;
+ double U[n][r];
+
+ infile.seekg(0);
+ infile.read((char *) &U, sizeof(U)); // read the number of element
+
+ callow::MatrixDense U_mat(n, r);
+
+ callow::MatrixDense A_r1(n, 10);
+ callow::MatrixDense B_r1(n, 10);
+
+ vector<vector<double>> basis_vecs;
+
+ for (int i=0; i<r; i++)
+ {
+   vector<double> v;
+   for (int j=0; j< n; j++)
+   {
+     v.push_back(U[j][i]);
+   }
+     basis_vecs.push_back(v);
+ }
+
+ callow::Vector y(n, 0.0);
+ for (int i=0; i<r; i++)
+ {
+   A->multiply(basis_vecs[i], y);
+   A_r1.insert_col(i, y, 0);
+   U_mat.insert_col(i, basis_vecs[i], 0);
+
+   B->multiply(basis_vecs[i], y);
+   B_r1.insert_col(i, y, 0);
+ }
+
+ // now do the multiplication by UT
+ callow::MatrixDense::SP_matrix A_r;
+ callow::MatrixDense::SP_matrix B_r;
+
+ A_r = new callow::MatrixDense(10, 10);
+ B_r = new callow::MatrixDense(10, 10);
+
+ for (int i=0; i<10; i++)
+ {
+   for (int k=0; k<10 ; k++)
+   {
+     for (int j=0; j<40; j++)
+     {
+       double va = U[j][i]*A_r1(j, k);
+       double vb = U[j][i]*B_r1(j, k);
+       A_r->insert(i, k, va, 1);
+       B_r->insert(i, k, vb, 1);
+     }
+   }
+ }
+
+  A_r->print_matlab("reduced_diff_A");
+  B_r->print_matlab("reduced_diff_B");
+
+  SP_eigensolver eigensolver;
+  eigensolver = Creator_T::Create(inp);
+  eigensolver->set_operators(B_r, A_r, inp);
+
+  SP_vector x;
+  SP_vector x1;
+  x  = new callow::Vector(10, 0.0);
+  x1 = new callow::Vector(10, 1.0);
+  eigensolver->solve(x, x1);
+  std::cout << eigensolver->eigenvalue() << "\n";
+
+  // reconstruct flux
+  callow::Vector phi0(20, 0.0);
+  callow::Vector phi1(20, 0.0);
+  callow::Vector phi(m, 0.0);
+
+  std::cout <<"the norm is  " << x->norm() << "\n";
+  double norm = x->norm();
+
+  U_mat.multiply(*x, phi);
+  for (int i=0; i<r ; i++)
+  {
+    std::cout << (*x)[i]/norm << "\n";
+  }
+
+  for (int i=0; i<20; i++)
+  {
+   phi0[i] = phi[i];
+   phi1[i] = phi[i+10];
+  }
+
+  return 0;
+}
