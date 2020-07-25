@@ -10,6 +10,7 @@ set(LIB_NAME "material")
 
 set(SRC
     Material.cc
+    dummy_material.cc
 )
 
 #-----------------------------------------------------------------------------#
