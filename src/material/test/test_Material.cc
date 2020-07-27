@@ -10,12 +10,13 @@
 #define TEST_LIST                     \
         FUNC(test_Material_basic)     \
         FUNC(test_Material_bounds)    \
-        FUNC(test_Material_serialize)
+        FUNC(test_Material_serialize) \
 
 // Detran headers
 #include "TestDriver.hh"
 #include "Material.hh"
 #include "SoftEquivalence.hh"
+#include "dummy_material.hh"
 
 // System
 #include <iostream>
@@ -166,6 +167,15 @@ int test_Material_serialize(int argc, char *argv[])
 #endif
   return 0;
 }
+
+/*
+int test_dummy_material(int argc, char *argv[])
+{
+ dummy_material mat(1);
+
+ return 0;
+}
+*/
 
 
 //---------------------------------------------------------------------------//

@@ -18,5 +18,7 @@ TARGET_LINK_LIBRARIES(test_dummy_material material utilities)
 
 ADD_TEST( test_Material_basic  test_Material 0)
 ADD_TEST( test_Material_bounds test_Material 1)
-ADD_TEST( test_dummy_material test_dummy_material 0)
+#ADD_TEST(test_dummy_material test_Material 3)
+ADD_TEST(test_dummy_material test_dummy_material  0)
+
 
