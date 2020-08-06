@@ -51,7 +51,7 @@ void ROMSolver<D>::Set_FullOperators()
 	d_input->put<int>("outer_krylov_group_cutoff", 0);
 	d_input->put<std::string>("eigen_solver", "GD");
 	SP_mg_solver mg_solver;
-	mg_solver = new FixedSourceManager<_1D>(d_input, d_mat, d_mesh, false, true);
+	mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
 	mg_solver->setup();
 	mg_solver->set_solver();
 	d_B = new LHS_Operator_T(mg_solver);
@@ -70,10 +70,11 @@ void ROMSolver<D>::Set_FullOperators()
   else if (d_operator == "EnergyIndependent")
   {
    SP_mg_solver mg_solver;
-   mg_solver = new FixedSourceManager<_1D>(d_input, d_mat, d_mesh, false, true);
+   mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
    mg_solver->setup();
    mg_solver->set_solver();
    d_A = new Operator_T(mg_solver);
+   std::cout << " get operator ..............     " << "\n";
   }
 }
 
@@ -88,10 +89,14 @@ void ROMSolver<D>::Solve(SP_matrix d_U, SP_vector sol)
 
   SP_matrix Ar;
   Ar = new callow::MatrixDense(d_r, d_r);
+  std::cout << " started projection ..............     " << "\n";
   P.Project(Ar);
+  std::cout << " projection finished  ..............     " << "\n";
 
   SP_eigensolver eigensolver;
   eigensolver = Creator_T::Create(d_input);
+  std::cout << " solving the eigenvalue ..............     " << "\n";
+
 
   if (d_operator == "diffusion" || d_operator == "EnergyDependent")
   {

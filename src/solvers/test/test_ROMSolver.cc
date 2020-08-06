@@ -120,12 +120,19 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
   ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/fission_density_core0_transport_r=7", U);
   SP_vector  fd_rom;
 
+  std::cout << "########################################################" << "\n";
+  std::cout << "################### Reduced Order Model  ##################" << "\n";
+  std::cout << "########################################################" << "\n";
   // ROM
   fd_rom = new callow::Vector(n, 0.0);
   ROM.Solve(U, fd_rom);
   double keff_rom = ROM.keff();
 
+
  //FOM
+  std::cout << "\n########################################################" << "\n";
+  std::cout << "################### Full Order Model  ##################" << "\n";
+  std::cout << "########################################################" << "\n";
   EigenvalueManager<_1D> manager(input, mat, mesh);
   manager.solve();
   double keff_fom = manager.state()->eigenvalue();

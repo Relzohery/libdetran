@@ -23,11 +23,10 @@ void OperatorProjection::SetOperators(SP_matrix A, SP_matrix U)
 	Require(A);
 	Require(U);
 
-    d_A = A;
-    d_U = U;
-
-    d_n = d_U->number_rows();
-    d_r = d_U->number_columns();
+   d_A = A;
+   d_U = U;
+   d_r = d_U->number_columns();
+   d_n = d_A->number_columns();
 
     Ensure(d_A->number_rows() == d_A->number_columns());
     Ensure(d_A->number_rows() == d_U->number_rows());
@@ -60,6 +59,7 @@ callow::MatrixDense OperatorProjection::ComputeAU()
 
   for (int i=0; i<d_r; i++)
   {
+	std::cout << " vector " << i << "\n";
 	callow::Vector v(d_n);
 	for (int j=0; j<d_n; j++)
 	{

@@ -154,7 +154,7 @@ Mesh1D::SP_mesh get_mesh(int fmm = 1, std::string id="assembly")
   //cm_core.assign(0.0 ,0.0);
 
   Mesh1D::vec_int mt_0(6);
-  mt_0[0] = 0; mt_0[1] =1;
+  mt_0[0] = 0; mt_0[1] = 1;
   mt_0[2] = 2; mt_0[3] = 2;
   mt_0[4] = 1; mt_0[5] = 0;
 
@@ -172,6 +172,7 @@ Mesh1D::SP_mesh get_mesh(int fmm = 1, std::string id="assembly")
   mt_3[0] = 0; mt_3[1] = 3;
   mt_3[2] = 3; mt_3[3] = 3;
   mt_3[4] = 3; mt_3[5] = 0;
+
 
   Mesh1D::vec_int mt_core0(42);
   mt_core0[0] = 0; mt_core0[1] = 1;
@@ -227,11 +228,12 @@ InputDB::SP_input get_input()
   inp->put<int>("inner_max_iters",            1000);
   inp->put<double>("inner_tolerance",            1e-7);
   inp->put<int>("inner_print_level",          0);
-  inp->put<std::string>("outer_solver",              "GMRES");
+  inp->put<std::string>("outer_solver",              "GS");
   inp->put<int>("outer_max_iters",            1000);
   inp->put<double>("outer_tolerance",            1e-7);
-  inp->put<int>("outer_print_level",          0);
-  inp->put<std::string>("eigen_solver",       "arnoldi");
+  inp->put<int>("inner_print_level",          0);
+  inp->put<int>("outer_print_level",          1);
+ // inp->put<std::string>("eigen_solver",       "arnoldi");
   inp->put<int>("eigen_max_iters",            200);
   inp->put<double>("eigen_tolerance",            1e-7);
   inp->put<std::string>("bc_west",                    "vacuum");
