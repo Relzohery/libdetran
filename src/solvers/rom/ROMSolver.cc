@@ -43,6 +43,9 @@ void ROMSolver<D>::Set_FullOperators()
 
 	d_A = A;
 	d_B = B;
+	d_A->compute_explicit("A_diffusion_Operator");
+	d_B->compute_explicit("B_diffusion_Operator");
+
   }
 
   else if (d_operator == "EnergyDependent")
@@ -55,6 +58,7 @@ void ROMSolver<D>::Set_FullOperators()
 	mg_solver->setup();
 	mg_solver->set_solver();
 	d_B = new LHS_Operator_T(mg_solver);
+	d_B->compute_explicit("B_EnergyDependent_Operator");
 
 	typename RHS_Operator_T::SP_operator A;
 	MGSolverGMRES<D>* mgs =
@@ -65,16 +69,31 @@ void ROMSolver<D>::Set_FullOperators()
 	A = mgs->get_operator();
 	A->sweeper()->set_update_boundary(false);
 	d_A = A;
+	//A->compute_explicit("A_EnergyDependent_Operator");
+	std::cout << d_A->number_columns() << "\n";
+	std::cout << d_A->number_rows() << "\n";
   }
 
   else if (d_operator == "EnergyIndependent")
   {
+	  std::cout << "here .......................\n";
    SP_mg_solver mg_solver;
+   std::cout << " 1 ................" << '\n';
+
    mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
+   std::cout << " 2 ................" << '\n';
    mg_solver->setup();
+   std::cout << " 3 ................" << '\n';
    mg_solver->set_solver();
+   std::cout << " 4 ................" << '\n';
    d_A = new Operator_T(mg_solver);
-   std::cout << " get operator ..............     " << "\n";
+   std::cout << " 5................" << '\n';
+
+  // d_A->compute_explicit("energyIndependent_operator");
+   std::cout << " 6................" << '\n';
+
+
+   std::cout << " operator done ................" << '\n';
   }
 }
 
