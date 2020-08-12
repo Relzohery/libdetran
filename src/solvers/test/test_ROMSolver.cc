@@ -1,3 +1,4 @@
+
 /*
  * test_ROMSolver.cc
  *
@@ -48,13 +49,13 @@ int test_ROM_diffusion(int argc, char *argv[])
  input->put<std::string>("equation", "diffusion");
 
  int n = mesh->number_cells();
- int r = 5;
+ int r = 6;
 
 // get the basis
  SP_matrix U;
  U = new callow::MatrixDense(2*n, 2*r);
  std::cout << n << "\n";
- ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_diff", U);
+ ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_diff_r=6", U);
 
  // ROM
  ROMSolver<_1D> ROM(input, mesh, mat);
@@ -112,12 +113,12 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
 
   ROMSolver<_1D> ROM(input, mesh, mat);
   int n = mesh->number_cells();
-  int r = 7;
+  int r = 9;
 
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(n, r);
-  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/fission_density_core0_transport_r=7", U);
+  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/fission_density_RB_basis_core0_transport_r=9", U);
   SP_vector  fd_rom;
 
   std::cout << "########################################################" << "\n";
@@ -166,12 +167,12 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
   InputDB::SP_input input = get_input();
 
   int n = mesh->number_cells();
-  int r = 7;
+  int r = 6;
 
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(2*n, 2*r);
-  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_transport_r=7", U);
+  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_transport_r=6", U);
 
   // ROM
   ROMSolver<_1D> ROM(input, mesh, mat);
@@ -218,5 +219,3 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
 
  return 0;
 }
-
-
