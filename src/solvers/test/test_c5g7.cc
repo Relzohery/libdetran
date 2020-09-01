@@ -46,31 +46,22 @@ int main(int argc, char *argv[])
 
 int test_pin(int argc, char *argv[])
 {
-  std::cout << "testing ............." << "\n";
   Material::SP_material mat = get_mat();
-  std::cout << "done material............." << "\n";
 
   vec_dbl radii (1, 0.54);
   vec_int  mat_map(2, 0);
   mat_map[0] = 1;
   mat_map[1] = 6 ;
   SP_pincell pin = get_pin(radii, mat_map);
-  std::cout << "pin done ............" << "\n";
   SP_mesh  mesh = pin->mesh();
   mat->display();
-  std::cout << "mesh done ............" << "\n";
 
   InputDB::SP_input inp = get_input();
-  std::cout << "input done ............" << "\n";
-
-
   EigenvalueManager<_2D> manager(inp, mat, mesh);
   manager.solve();
   double keff = manager.state()->eigenvalue();
 
-  std::cout << keff << "\n";
-
-return 0;
+  return 0;
 }
 
 int test_assembly(int argc, char *argv[])
@@ -82,18 +73,15 @@ int test_assembly(int argc, char *argv[])
   SP_mesh  mesh = assm->mesh();
   int n = mesh->number_cells();
 
-  std ::cout << n;
-
   InputDB::SP_input inp = get_input("assembly");
 
   std::cout << "########################################################" << "\n";
   std::cout << "################### Full Order Model  ##################" << "\n";
   std::cout << "########################################################" << "\n";
 
-  //EigenvalueManager<_2D> manager(inp, mat, mesh);
-  //manager.solve();
-  //double keff = manager.state()->eigenvalue();
-  //std::cout <<  "keff = " << keff << "\n";
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  double keff = manager.state()->eigenvalue();
 
   inp->put<std::string>("equation", "dd");
 
@@ -102,8 +90,6 @@ int test_assembly(int argc, char *argv[])
   std::cout << "################### Reduced Order Model  ##################" << "\n";
   std::cout << "###########################################################" << "\n";
   ROMSolver<_2D> ROM(inp, mesh, mat);
-
-
   int r = 50;
 
   // get the basis
@@ -116,35 +102,50 @@ int test_assembly(int argc, char *argv[])
   fd_rom = new callow::Vector(n, 0.0);
   ROM.Solve(U, fd_rom);
 
- // double keff_rom = ROM.keff();
- // std::cout <<  "keff rom ............" << keff_rom << "\n";
-
-
-return 0;
+ double keff_rom = ROM.keff();
+ return 0;
 }
 
 
 int test_core(int argc, char *argv[])
 {
-  std::cout << "testing ............." << "\n";
   Material::SP_material mat = get_mat();
-  std::cout << "done material............." << "\n";
-
   Core::SP_core core = get_core();
-
-  std::cout << "assembly done ............" << "\n";
   SP_mesh  mesh = core->mesh();
-  std::cout << "mesh done ............" << "\n";
-  mesh->display();
 
   InputDB::SP_input inp = get_input("core");
-  std::cout << "input done ............" << "\n";
+
+  /*
+  std::cout << "########################################################" << "\n";
+  std::cout << "################### Full Order Model  ##################" << "\n";
+  std::cout << "########################################################" << "\n";
 
   EigenvalueManager<_2D> manager(inp, mat, mesh);
   manager.solve();
   double keff = manager.state()->eigenvalue();
+  std::cout <<  "keff = " << keff << "\n";
+  */
 
-  std::cout << keff << "\n";
+  std::cout << "###########################################################" << "\n";
+  std::cout << "################### Reduced Order Model  ##################" << "\n";
+  std::cout << "###########################################################" << "\n";
+
+  ROMSolver<_2D> ROM(inp, mesh, mat);
+  std::cout << mesh->number_cells() << "\n";
+  int r = 20;
+  int n = 2601*7;
+  // get the basis
+  SP_matrix U;
+  U = new callow::MatrixDense(n, 20);
+  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core_transport_c5g7_r=20", U);
+
+  SP_vector  fd_rom;
+  // ROM
+  fd_rom = new callow::Vector(n, 0.0);
+  ROM.Solve(U, fd_rom);
+
+  double keff_rom = ROM.keff();
+  std::cout <<  "keff rom = " << keff_rom << "\n";
 
 return 0;
 }
