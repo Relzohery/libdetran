@@ -101,6 +101,8 @@ ADD_TEST(test_MGCMFD             		test_MGCMFD 0)
 ADD_EXECUTABLE(test_TimeStepper          	test_TimeStepper.cc)
 TARGET_LINK_LIBRARIES(test_TimeStepper   	solvers)
 ADD_EXECUTABLE(test_TWIGL                   test_TWIGL.cc)
+ADD_TEST(TEST_TWIGL                         test_TWIGL 0) 
+ADD_TEST(TEST_TWIGL_ROM                     test_TWIGL 1) 
 TARGET_LINK_LIBRARIES(test_TWIGL            solvers)
 #ADD_TEST(test_MGCMFD             		test_MGCMFD 0)
 

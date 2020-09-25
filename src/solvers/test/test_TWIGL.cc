@@ -9,7 +9,8 @@
 
 // LIST OF TEST FUNCTIONS
 #define TEST_LIST               \
-        FUNC(test_TWIGL)
+        FUNC(test_TWIGL)\
+		FUNC(test_TWIGL_ROM)
 
 #include "TestDriver.hh"
 #include "TimeStepper.hh"
@@ -22,6 +23,11 @@
 #include "kinetics/LinearExternalSource.hh"
 #include "kinetics/LinearMaterial.hh"
 #include "solvers/EigenvalueManager.hh"
+#include "callow/matrix/MatrixDense.hh"
+#include "ROMBasis.hh"
+#include "TransientSolver.hh"
+#include "solvers/rom/ROMSolver.hh"
+
 
 
 using namespace detran_test;
@@ -33,6 +39,11 @@ using namespace detran_utilities;
 using namespace std;
 using std::cout;
 using std::endl;
+typedef callow::MatrixDense::SP_matrix            SP_matrix;
+typedef callow::Vector::SP_vector      SP_vector;
+
+typedef TimeStepper<_2D> TS_2D;
+
 
 int main(int argc, char *argv[])
 {
@@ -44,6 +55,9 @@ int main(int argc, char *argv[])
 //---------------------------------------------------------------------------//
 // TEST DEFINITIONS
 //---------------------------------------------------------------------------//
+double phi[2*400][600];
+double C[400][600];
+double FD[400][600];
 
 void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
                   double dt, int it, bool conv)
@@ -55,9 +69,22 @@ void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
     int m = matmap[i];
     F += ts->state()->phi(0)[i] * ts->material()->sigma_f(m, 0) +
          ts->state()->phi(1)[i] * ts->material()->sigma_f(m, 1);
+
+    C[i][step] = ts->precursor()->C(0)[i];
+    phi[i][step] = ts->state()->phi(0)[i];
+    phi[i + 400][step] = ts->state()->phi(1)[i];
+
+    //std::cout << ts->state()->phi(0)[i] << " 0000000\n";
   }
+  //if (step == 0) std::cout << ts->state()->phi(0)[0] << "^^^^^^^^^^^^\n";
+  //if (step == 1) std::cout<<ts->state()->phi(0)[0] << "  1111111\n";
+  //if (step == 10) std::cout<<ts->state()->phi(0)[0] << "  10101010101010\n";
+
   //ts->state()->display();
   printf(" %5i  %16.13f  %16.13f %5i \n", step, t, F, it);
+  if (step == 600) std::cout<<ts->precursor()->C(0)[0] << "  ##############\n";
+  if (step == 1) std::cout<<ts->precursor()->C(0)[0] << "  $$$$$$$$$$$$$$$$$$$$\n";
+
 }
 
 //---------------------------------------------------------------------------//
@@ -266,19 +293,12 @@ Mesh2D::SP_mesh get_mesh(Mesh2D::size_t fmm = 1)
 }
 
 //---------------------------------------------------------------------------//
-int test_TWIGL(int argc, char *argv[])
+InputDB::SP_input get_input()
 {
-
-  typedef TimeStepper<_2D> TS_2D;
-
-  //-------------------------------------------------------------------------//
-  // INPUT
-  //-------------------------------------------------------------------------//
-
   InputDB::SP_input inp(new InputDB("TWIGL benchmark"));
   inp->put<int>("dimension",                      2);
   inp->put<int>("number_groups",                  2);
-  inp->put<std::string>("equation",               "dd");
+  inp->put<std::string>("equation",               "diffusion");
   inp->put<std::string>("bc_west",                "reflect");
   inp->put<std::string>("bc_east",                "vacuum");
   inp->put<std::string>("bc_south",               "reflect");
@@ -305,7 +325,7 @@ int test_TWIGL(int argc, char *argv[])
   inp->put<int>("inner_max_iters",          1e5);
 
   inp->put<int>("inner_print_level",        0);
-  inp->put<int>("outer_print_level",        1);
+  inp->put<int>("outer_print_level",        0);
   inp->put<int>("quad_number_azimuth_octant",   1);
   inp->put<int>("quad_number_polar_octant",     1);
 
@@ -327,9 +347,20 @@ int test_TWIGL(int argc, char *argv[])
   inp->put<int>("compute_boundary_flux",                1);
   if (inp->get<std::string>("equation") != "diffusion")
   {
-    inp->put<int>("ts_discrete",              1);
-    inp->put<int>("store_angular_flux",       1);
+	inp->put<int>("ts_discrete",              1);
+	inp->put<int>("store_angular_flux",       1);
   }
+
+
+  return inp;
+}
+
+
+//---------------------------------------------------------------------------//
+int test_TWIGL(int argc, char *argv[])
+{
+
+  InputDB::SP_input inp =get_input();
 
   //-------------------------------------------------------------------------//
   // MATERIAL
@@ -338,7 +369,8 @@ int test_TWIGL(int argc, char *argv[])
   // Create a TWIGL material with ramp reactivity
   bool transport = false;
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new TWIGLMaterial(2, transport));
+  TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
 
   //-------------------------------------------------------------------------//
   // MESH
@@ -368,7 +400,10 @@ int test_TWIGL(int argc, char *argv[])
     int m = matmap[i];
     F += ic->phi(0)[i] * mat->sigma_f(m, 0) +
          ic->phi(1)[i] * mat->sigma_f(m, 1);
+
   }
+  std::cout << mat->sigma_f(0, 1) << "\n";
+
   ic->scale(1.0/F);
 
   //-------------------------------------------------------------------------//
@@ -377,20 +412,121 @@ int test_TWIGL(int argc, char *argv[])
 
 
   TS_2D stepper(inp, mat, mesh, true);
+
   stepper.set_monitor(test_monitor);
   stepper.solve(ic);
 
 
-  printf(" %20.16f %20.16f ", ic->phi(0)[0], ic->phi(0)[1]);
-  std::cout << std::endl;
+  //printf(" %20.16f %20.16f ", ic->phi(0)[0], ic->phi(0)[1]);
+ // std::cout << std::endl;
 
   State::SP_state final = stepper.state();
 
-  printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
+ // SP_matrix phi_mat;
+  callow::MatrixDense phi_mat(400*2, 600);
+
+  //SP_matrix C_mat;
+  callow::MatrixDense C_mat(400, 600);
+
+  callow::MatrixDense F_mat(400, 600);
+
+  std:cout << phi[0][0] << "   594859485498\n";
+
+  for (int step = 0; step<600; step ++)
+  {
+   for (int cell = 0; cell< 400; cell++)
+   {
+    phi_mat(cell, step) = phi[cell][step]/F;
+    phi_mat(cell + 400, step) = phi[cell + 400][step]/F;
+    C_mat(cell, step) = C[cell][step]/F;
+    F_mat(cell, step) = FD[cell][step]/F;
+   }
+  }
+  phi_mat.print_matlab("twigle_flux_ramp");
+  F_mat.print_matlab("twigle_fD_ramp");
+
+  C_mat.print_matlab("twigle_precursors_ramp");
+
+  //printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
 
   return 0;
 
+}
+//---------------------------------------------------------------------------//
+int test_TWIGL_ROM(int argc, char *argv[])
+{
+ InputDB::SP_input inp =get_input();
+
+ bool transport = false;
+ if (inp->get<std::string>("equation") != "diffusion") transport = true;
+ TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
+ //-------------------------------------------------------------------------//
+ // MESH
+ //-------------------------------------------------------------------------//
+
+ TS_2D::SP_mesh mesh = get_mesh(2);
+
+ const char* flux_basis = "/home/rabab/Desktop/twigl_ramp_flux_basis_r=50";
+ const char* precursors_basis = "/home/rabab/Desktop/twigl_ramp_precursors_basis_r=10";
+
+
+  int n = 400;
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, 50*2);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n, 10);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+
+  //-------------------------- steady state ROM -----------------//
+  ROMSolver<_2D> ROM(inp, mesh, mat);
+  SP_vector  ROM_flux;
+  ROM_flux = new callow::Vector(2*n, 0.0);
+  ROM.Solve(basis_f, ROM_flux);
+  double keff_rom = ROM.keff();
+
+  std::cout << keff_rom << "  &&\n";
+
+  //
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
+
+  //get initial state
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+
+  // Normalize state.
+  double F = 0;
+
+  vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += (ic->phi(0)[i]) * mat->sigma_f(m, 0)+
+         (ic->phi(1)[i]) * mat->sigma_f(m, 1);
+
+   // std::cout << ic->phi(0)[i] << "\n";
+  }
+
+  ic->scale(1.0/F);
+
+  std::cout << mat->sigma_f(0, 1) << "\n";
+  std::cout << F << " *****\n";
+  R.Solve(ic);
+   //R.initialize_precursors();
+
+  std::cout << "TESt End ---------------" << "\n";
+
+
+ return 0;
 }
 //---------------------------------------------------------------------------//
 //              end of test_TWIGL.cc
