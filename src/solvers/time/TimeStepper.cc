@@ -173,6 +173,10 @@ TimeStepper<D>::TimeStepper(SP_input       input,
     if (d_do_output) d_silooutput = new detran_ioutils::SiloOutput(d_mesh);
   }
 
+  flux_mat =  new callow::MatrixDense(d_material->number_groups()*d_mesh->number_cells(), d_number_steps+1);
+  precursors_mat = new callow::MatrixDense(d_material->number_precursor_groups()*d_mesh->number_cells(), d_number_steps+1);
+
+
 }
 
 //---------------------------------------------------------------------------//
@@ -200,13 +204,35 @@ void TimeStepper<D>::solve(SP_state initial_state)
   // Update the material, sources, and solver
   d_material->update(0.0, 0, 1, false);
   d_state = initial_state;
+
+  int cells = d_mesh->number_cells();
+
+
+  for (int g=0; g< d_material->number_groups(); g++)
+  {
+   for (int cell=0; cell< d_mesh->number_cells(); cell++)
+   {
+     (*flux_mat)(cell + g*cells, 0) = d_state->phi(g)[cell];
+   }
+  }
+
+
+  for (int g=0; g< d_material->number_precursor_groups(); g++)
+  {
+   for (int cell=0; cell< d_mesh->number_cells(); cell++)
+  {
+    (*precursors_mat)(cell + g*cells, 0) = d_precursor->C(g)[cell];
+  }
+ }
+
+
   *d_solver->state() = *d_state;
 
   initialize_precursors();
+
   *d_states[0] = *d_state;
   if (d_precursors.size()) *d_precursors[0] = *d_precursor;
   if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
-
 
   // Output the initial state
   if (d_do_output) d_silooutput->write_time_flux(0, d_state, d_discrete);
@@ -217,12 +243,14 @@ void TimeStepper<D>::solve(SP_state initial_state)
   // Call the monitor, if present.  [data, this, step, time, dt, order, conv]
   if (d_monitor_level) d_monitor(d_monitor_data, this, 0, 0.0, d_dt, 1, true);
 
+
   // Perform time steps
   double  t = 0.0;
   double dt = 0.0;
   for (size_t i = 1; i <= d_number_steps; ++i)
   {
-    t += d_dt;
+	  std::cout << i << "\n";
+	  t += d_dt;
 
     // Determine the order.
     size_t order = d_order;
@@ -247,6 +275,7 @@ void TimeStepper<D>::solve(SP_state initial_state)
       // Perform the time step
       step(t, dt, order, flag);
 
+
       bool converged = check_convergence();
       if (iteration == d_maximum_iterations) converged = true;
 
@@ -267,9 +296,32 @@ void TimeStepper<D>::solve(SP_state initial_state)
     // Output the initial state
     if (d_do_output) d_silooutput->write_time_flux(i+1, d_state, true);
 
+
+    for (int g=0; g< d_material->number_groups(); g++)
+    {
+     for (int cell=0; cell< d_mesh->number_cells(); cell++)
+     {
+     (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
+     }
+    }
+
+
+    for (int g=0; g< d_material->number_precursor_groups(); g++)
+	{
+	 for (int cell=0; cell< d_mesh->number_cells(); cell++)
+	 {
+	  (*precursors_mat)(cell + g*cells, i) = d_precursor->C(g)[cell];
+    }
+   }
+
   } // end time steps
 
+
+  flux_mat->print_matlab("flux_snapshots.txt");
+  precursors_mat->print_matlab("precursors_snapshots.txt");
+
 }
+
 
 //---------------------------------------------------------------------------//
 template <class D>
