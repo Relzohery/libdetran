@@ -27,7 +27,7 @@
 #include "ROMBasis.hh"
 #include "TransientSolver.hh"
 #include "solvers/rom/ROMSolver.hh"
-
+#include <time.h>
 
 
 using namespace detran_test;
@@ -55,10 +55,6 @@ int main(int argc, char *argv[])
 //---------------------------------------------------------------------------//
 // TEST DEFINITIONS
 //---------------------------------------------------------------------------//
-double phi[2*400][600];
-double C[400][600];
-double FD[400][600];
-
 void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
                   double dt, int it, bool conv)
 {
@@ -70,9 +66,6 @@ void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
     F += ts->state()->phi(0)[i] * ts->material()->sigma_f(m, 0) +
          ts->state()->phi(1)[i] * ts->material()->sigma_f(m, 1);
 
-    C[i][step] = ts->precursor()->C(0)[i];
-    phi[i][step] = ts->state()->phi(0)[i];
-    phi[i + 400][step] = ts->state()->phi(1)[i];
 
     //std::cout << ts->state()->phi(0)[i] << " 0000000\n";
   }
@@ -81,9 +74,9 @@ void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
   //if (step == 10) std::cout<<ts->state()->phi(0)[0] << "  10101010101010\n";
 
   //ts->state()->display();
-  printf(" %5i  %16.13f  %16.13f %5i \n", step, t, F, it);
-  if (step == 600) std::cout<<ts->precursor()->C(0)[0] << "  ##############\n";
-  if (step == 1) std::cout<<ts->precursor()->C(0)[0] << "  $$$$$$$$$$$$$$$$$$$$\n";
+ // printf(" %5i  %16.13f  %16.13f %5i \n", step, t, F, it);
+  //if (step == 600) std::cout<<ts->precursor()->C(0)[0] << "  ##############\n";
+  //if (step == 1) std::cout<<ts->precursor()->C(0)[0] << "  $$$$$$$$$$$$$$$$$$$$\n";
 
 }
 
@@ -315,7 +308,7 @@ InputDB::SP_input get_input()
   inp->put<int>("quad_number_polar_octant",       8);
   inp->put<int>("quad_number_azimuth_octant",     8);
 
-  inp->put<string>("outer_solver",          "GMRES");
+  inp->put<string>("outer_solver",          "GS");
   inp->put<int>("outer_krylov_group_cutoff",      0);
   //inp->put<int>("compute_boundary_flux",          1);
 
@@ -331,16 +324,16 @@ InputDB::SP_input get_input()
 
   // inner gmres parameters
   InputDB::SP_input db(new InputDB("inner_solver_db"));
-  db->put<double>("linear_solver_atol",                 1e-12);
-  db->put<double>("linear_solver_rtol",                 1e-15);
+ // db->put<double>("linear_solver_atol",                 1e-13);
+ // db->put<double>("linear_solver_rtol",                 1e-13);
   db->put<string>("linear_solver_type",                 "petsc");
   db->put<string>("pc_type",                            "petsc_pc");
   db->put<string>("petsc_pc_type",                      "lu");
-  db->put<int>("linear_solver_maxit",                   2000);
+  db->put<int>("linear_solver_maxit",                   1000);
   db->put<int>("linear_solver_gmres_restart",           30);
   db->put<int>("linear_solver_monitor_level",           0);
   db->put<string>("eigen_solver_type",                  "slepc");
-  db->put<double>("eigen_solver_tol",                   1e-15);
+  //db->put<double>("eigen_solver_tol",                   1e-15);
   inp->put<InputDB::SP_input>("inner_solver_db",        db);
   inp->put<InputDB::SP_input>("outer_solver_db",        db);
   inp->put<InputDB::SP_input>("eigen_solver_db",        db);
@@ -359,7 +352,8 @@ InputDB::SP_input get_input()
 //---------------------------------------------------------------------------//
 int test_TWIGL(int argc, char *argv[])
 {
-
+  time_t begin, end;
+  time(&begin);
   InputDB::SP_input inp =get_input();
 
   //-------------------------------------------------------------------------//
@@ -376,7 +370,9 @@ int test_TWIGL(int argc, char *argv[])
   // MESH
   //-------------------------------------------------------------------------//
 
-  TS_2D::SP_mesh mesh = get_mesh(2);
+  TS_2D::SP_mesh mesh = get_mesh(5);
+
+  std::cout << mesh->number_cells() << "   &&&&&\n";
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -400,12 +396,11 @@ int test_TWIGL(int argc, char *argv[])
     int m = matmap[i];
     F += ic->phi(0)[i] * mat->sigma_f(m, 0) +
          ic->phi(1)[i] * mat->sigma_f(m, 1);
-
   }
-  std::cout << mat->sigma_f(0, 1) << "\n";
 
   ic->scale(1.0/F);
 
+  std::cout << " normalized ***************\n";
   //-------------------------------------------------------------------------//
   // TIME STEPPER
   //-------------------------------------------------------------------------//
@@ -423,32 +418,21 @@ int test_TWIGL(int argc, char *argv[])
   State::SP_state final = stepper.state();
 
  // SP_matrix phi_mat;
-  callow::MatrixDense phi_mat(400*2, 600);
+  SP_matrix phi_mat;
+  SP_matrix precursors_mat;
 
-  //SP_matrix C_mat;
-  callow::MatrixDense C_mat(400, 600);
+  phi_mat = stepper.flux_mat;
+  precursors_mat = stepper.precursors_mat;
 
-  callow::MatrixDense F_mat(400, 600);
-
-  std:cout << phi[0][0] << "   594859485498\n";
-
-  for (int step = 0; step<600; step ++)
-  {
-   for (int cell = 0; cell< 400; cell++)
-   {
-    phi_mat(cell, step) = phi[cell][step]/F;
-    phi_mat(cell + 400, step) = phi[cell + 400][step]/F;
-    C_mat(cell, step) = C[cell][step]/F;
-    F_mat(cell, step) = FD[cell][step]/F;
-   }
-  }
-  phi_mat.print_matlab("twigle_flux_ramp");
-  F_mat.print_matlab("twigle_fD_ramp");
-
-  C_mat.print_matlab("twigle_precursors_ramp");
-
+   phi_mat->print_matlab("twigl_flux_ramp.txt");
+   precursors_mat->print_matlab("twigl_precursors_ramp.txt");
   //printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
+
+  time(&end);
+  time_t elapsed = end - begin;
+
+  std::cout << "time elapsed  " << elapsed  << " ******\n";
 
   return 0;
 
@@ -456,6 +440,8 @@ int test_TWIGL(int argc, char *argv[])
 //---------------------------------------------------------------------------//
 int test_TWIGL_ROM(int argc, char *argv[])
 {
+ time_t begin, end;
+  time(&begin);
  InputDB::SP_input inp =get_input();
 
  bool transport = false;
@@ -466,15 +452,15 @@ int test_TWIGL_ROM(int argc, char *argv[])
  // MESH
  //-------------------------------------------------------------------------//
 
- TS_2D::SP_mesh mesh = get_mesh(2);
+ TS_2D::SP_mesh mesh = get_mesh(5);
 
- const char* flux_basis = "/home/rabab/Desktop/twigl_ramp_flux_basis_r=50";
+ const char* flux_basis = "/home/rabab/Desktop/twigl_ramp_flux_basis_r=20";
  const char* precursors_basis = "/home/rabab/Desktop/twigl_ramp_precursors_basis_r=10";
 
-
-  int n = 400;
+  int r = 20;
+  int n = 2500;
   SP_matrix basis_f;
-  basis_f = new callow::MatrixDense(n*2, 50*2);
+  basis_f = new callow::MatrixDense(n*2, r*2);
   ROMBasis::GetBasis(flux_basis, basis_f);
 
   SP_matrix basis_p;
@@ -518,12 +504,14 @@ int test_TWIGL_ROM(int argc, char *argv[])
 
   ic->scale(1.0/F);
 
-  std::cout << mat->sigma_f(0, 1) << "\n";
-  std::cout << F << " *****\n";
   R.Solve(ic);
+
+  SP_matrix flux;
    //R.initialize_precursors();
 
-  std::cout << "TESt End ---------------" << "\n";
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "time elapsed  " << elapsed  << " ******\n";
 
 
  return 0;
