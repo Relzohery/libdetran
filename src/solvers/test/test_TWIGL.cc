@@ -39,7 +39,7 @@ using namespace detran_utilities;
 using namespace std;
 using std::cout;
 using std::endl;
-typedef callow::MatrixDense::SP_matrix            SP_matrix;
+typedef callow::MatrixDense::SP_matrix        SP_matrix;
 typedef callow::Vector::SP_vector      SP_vector;
 
 typedef TimeStepper<_2D> TS_2D;
@@ -65,18 +65,7 @@ void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
     int m = matmap[i];
     F += ts->state()->phi(0)[i] * ts->material()->sigma_f(m, 0) +
          ts->state()->phi(1)[i] * ts->material()->sigma_f(m, 1);
-
-
-    //std::cout << ts->state()->phi(0)[i] << " 0000000\n";
   }
-  //if (step == 0) std::cout << ts->state()->phi(0)[0] << "^^^^^^^^^^^^\n";
-  //if (step == 1) std::cout<<ts->state()->phi(0)[0] << "  1111111\n";
-  //if (step == 10) std::cout<<ts->state()->phi(0)[0] << "  10101010101010\n";
-
-  //ts->state()->display();
- // printf(" %5i  %16.13f  %16.13f %5i \n", step, t, F, it);
-  //if (step == 600) std::cout<<ts->precursor()->C(0)[0] << "  ##############\n";
-  //if (step == 1) std::cout<<ts->precursor()->C(0)[0] << "  $$$$$$$$$$$$$$$$$$$$\n";
 
 }
 
@@ -400,7 +389,6 @@ int test_TWIGL(int argc, char *argv[])
 
   ic->scale(1.0/F);
 
-  std::cout << " normalized ***************\n";
   //-------------------------------------------------------------------------//
   // TIME STEPPER
   //-------------------------------------------------------------------------//
@@ -432,16 +420,15 @@ int test_TWIGL(int argc, char *argv[])
   time(&end);
   time_t elapsed = end - begin;
 
-  std::cout << "time elapsed  " << elapsed  << " ******\n";
-
   return 0;
 
 }
+
 //---------------------------------------------------------------------------//
 int test_TWIGL_ROM(int argc, char *argv[])
 {
  time_t begin, end;
-  time(&begin);
+ time(&begin);
  InputDB::SP_input inp =get_input();
 
  bool transport = false;
@@ -454,10 +441,10 @@ int test_TWIGL_ROM(int argc, char *argv[])
 
  TS_2D::SP_mesh mesh = get_mesh(5);
 
- const char* flux_basis = "/home/rabab/Desktop/twigl_ramp_flux_basis_r=20";
+ const char* flux_basis = "/home/rabab/Desktop/twigl_ramp_flux_basis_r=40";
  const char* precursors_basis = "/home/rabab/Desktop/twigl_ramp_precursors_basis_r=10";
 
-  int r = 20;
+  int r = 40;
   int n = 2500;
   SP_matrix basis_f;
   basis_f = new callow::MatrixDense(n*2, r*2);
@@ -467,7 +454,8 @@ int test_TWIGL_ROM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n, 10);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-
+/*
+  std::cout << "  //-------------------------- steady state ROM -----------------//\n";
   //-------------------------- steady state ROM -----------------//
   ROMSolver<_2D> ROM(inp, mesh, mat);
   SP_vector  ROM_flux;
@@ -476,10 +464,7 @@ int test_TWIGL_ROM(int argc, char *argv[])
   double keff_rom = ROM.keff();
 
   std::cout << keff_rom << "  &&\n";
-
-  //
-  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
-
+*/
   //get initial state
 
   EigenvalueManager<_2D> manager(inp, mat, mesh);
@@ -488,6 +473,8 @@ int test_TWIGL_ROM(int argc, char *argv[])
   mat->set_eigenvalue(ic->eigenvalue());
   mat->update(0, 0, 1, false);
 
+  std::cout << ic->eigenvalue() << "\n";
+  std::cout << "  //-------------------------- transient ROM -----------------//\n";
 
   // Normalize state.
   double F = 0;
@@ -498,16 +485,16 @@ int test_TWIGL_ROM(int argc, char *argv[])
     int m = matmap[i];
     F += (ic->phi(0)[i]) * mat->sigma_f(m, 0)+
          (ic->phi(1)[i]) * mat->sigma_f(m, 1);
-
-   // std::cout << ic->phi(0)[i] << "\n";
   }
+  std::cout << ic->eigenvalue() << "\n";
+
 
   ic->scale(1.0/F);
-
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
   R.Solve(ic);
+  std::cout << "solved   " << "\n";
 
   SP_matrix flux;
-   //R.initialize_precursors();
 
   time(&end);
   time_t elapsed = end - begin;
