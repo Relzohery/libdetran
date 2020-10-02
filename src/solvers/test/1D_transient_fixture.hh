@@ -204,7 +204,7 @@ InputDB::SP_input get_input()
   inp->put<double>("ts_step_size",                0.1);
   inp->put<int>("ts_max_steps",                   1000);
   inp->put<int>("ts_output",                      0);
-  inp->put<int>("ts_monitor_level",               0);
+  inp->put<int>("ts_monitor_level",               1);
   inp->put<int>("ts_no_extrapolation",            0);
   inp->put<string>("eigen_solver",                "arnoldi");
   inp->put<string>("outer_solver",                 "GMRES");
@@ -238,7 +238,6 @@ InputDB::SP_input get_input()
   inp->put<int>("linear_solver_maxit",   1000);
   inp->put<int>("linear_solver_monitor_level", 0);
   inp->put<int>("linear_solver_monitor_diverge", 0);
-  db->put<double>("linear_solver_tol",                   1e-16);
   if (inp->get<std::string>("equation") != "diffusion")
   {
     inp->put<int>("ts_discrete",              1);

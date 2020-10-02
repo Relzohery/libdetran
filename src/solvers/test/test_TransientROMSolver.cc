@@ -1,6 +1,14 @@
 #define TEST_LIST  \
     FUNC(test_TransientSolver_fom)\
     FUNC(test_TransientSolver_rom)\
+/*
+ * test_TransientROMSolver.cc
+ *
+ *  Created on: Sep 10, 2020
+ *      Author: rabab
+ */
+
+#define TEST_LIST                       FUNC(test_TransientSolver)
 
 #include "TestDriver.hh"
 #include "Mesh1D.hh"
@@ -72,6 +80,7 @@ int test_TransientSolver_fom(int argc, char *argv[])
 return 0;
 }
 
+
 int test_TransientSolver_rom(int argc, char *argv[])
 {
   typedef TimeStepper<_1D> TS_1D;
@@ -86,6 +95,8 @@ int test_TransientSolver_rom(int argc, char *argv[])
   mat->update(0, 0, 1, false);
 
   vec_int matmap = mesh->mesh_map("MATERIAL");
+  const char* flux_basis = "/home/rabab/Desktop/1d_transient_flux_basis_r=15";
+  const char* precursors_basis = "/home/rabab/Desktop/1d_transient_precursors_basis_r=15";
 
   // Normalize state.
   double F = 0;
@@ -108,11 +119,11 @@ int test_TransientSolver_rom(int argc, char *argv[])
   int r = 5;
 
   SP_matrix basis_f;
-  basis_f = new callow::MatrixDense(42, 2*7);
+  basis_f = new callow::MatrixDense(42, 2*r);
   ROMBasis::GetBasis(flux_basis, basis_f);
 
   SP_matrix basis_p;
-  basis_p = new callow::MatrixDense(168, 7);
+  basis_p = new callow::MatrixDense(168, r);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
