@@ -108,11 +108,11 @@ int test_TransientSolver_rom(int argc, char *argv[])
   int r = 5;
 
   SP_matrix basis_f;
-  basis_f = new callow::MatrixDense(42, 2*r);
+  basis_f = new callow::MatrixDense(42, 2*7);
   ROMBasis::GetBasis(flux_basis, basis_f);
 
   SP_matrix basis_p;
-  basis_p = new callow::MatrixDense(168, r);
+  basis_p = new callow::MatrixDense(168, 7);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
