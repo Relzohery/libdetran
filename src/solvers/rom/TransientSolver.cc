@@ -16,7 +16,6 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
  d_inp(inp),
  d_precursors_basis(precursors_basis),
  d_flux_basis(flux_basis)
-<<<<<<< aca57910e6f52aea57adc829b5364010ca8390a3
 {
   d_num_cells = d_mesh->number_cells();
   d_number_groups = d_material->number_groups();
@@ -35,7 +34,6 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
 
   // Compute the number of steps.  May result in longer time than requested!
   d_number_steps = std::ceil(d_final_time / d_dt);
-  std::cout << d_number_steps << "  &&&&&\n";
 
   d_P0 = new callow::Vector (d_num_cells* d_precursors_group, 0.0);
   d_phi0 = new callow::Vector(d_num_cells* d_number_groups, 0.0);
@@ -50,6 +48,7 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
 
   d_A = new callow::MatrixDense(d_rf + d_rc, d_rf+d_rc);
   d_A_ = new callow::MatrixDense(d_rf + d_rc, d_rf+d_rc);
+
 
   // long vector of flux and precursors
   d_sols = new callow::MatrixDense(d_rf + d_rc, d_number_steps+1);
@@ -88,6 +87,7 @@ void TransientSolver::initialize_precursors()
    }
  }
 }
+
 //------------------------------------------------------------------------------------//
 
 /// Project the initial flux and precursors concentraion onto their basis to get
@@ -244,7 +244,7 @@ void TransientSolver::Construct_Operator(double t, double dt)
 //---------------------------------------------------------------------//
 
 void TransientSolver::Refersh_Operator()
-
+{
   // if diffusion
   SP_lossoperator L(new DiffusionLossOperator(d_inp, d_material, d_mesh, false, 0.0, false, 1.0));
   d_L = L;
@@ -362,3 +362,5 @@ void TransientSolver::reconstruct()
   // temporary ... need to have getter for flux, etc
   d_flux->print_matlab("flux.txt");
 }
+
+
