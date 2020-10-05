@@ -152,4 +152,4 @@ private:
   void reconstruct();
 };
 
-#endif /* SOLVERS_ROM_TRANSIENTSOLVER_HH_ */
+endif /* SOLVERS_ROM_TRANSIENTSOLVER_HH_ */
