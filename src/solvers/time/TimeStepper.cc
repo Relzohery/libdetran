@@ -249,8 +249,7 @@ void TimeStepper<D>::solve(SP_state initial_state)
   double dt = 0.0;
   for (size_t i = 1; i <= d_number_steps; ++i)
   {
-	  std::cout << i << "\n";
-	  t += d_dt;
+    t += d_dt;
 
     // Determine the order.
     size_t order = d_order;
