@@ -1,6 +1,3 @@
-#define TEST_LIST  \
-    FUNC(test_TransientSolver_fom)\
-    FUNC(test_TransientSolver_rom)\
 /*
  * test_TransientROMSolver.cc
  *
@@ -8,7 +5,9 @@
  *      Author: rabab
  */
 
-#define TEST_LIST                       FUNC(test_TransientSolver)
+#define TEST_LIST  \
+    FUNC(test_TransientSolver_fom)\
+    FUNC(test_TransientSolver_rom)\
 
 #include "TestDriver.hh"
 #include "Mesh1D.hh"
@@ -95,9 +94,6 @@ int test_TransientSolver_rom(int argc, char *argv[])
   mat->update(0, 0, 1, false);
 
   vec_int matmap = mesh->mesh_map("MATERIAL");
-  const char* flux_basis = "/home/rabab/Desktop/1d_transient_flux_basis_r=15";
-  const char* precursors_basis = "/home/rabab/Desktop/1d_transient_precursors_basis_r=15";
-
   // Normalize state.
   double F = 0;
   for (int i = 0; i < mesh->number_cells(); ++i)
