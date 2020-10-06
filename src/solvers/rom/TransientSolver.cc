@@ -322,6 +322,8 @@ void TransientSolver::Solve(SP_state initial_state)
    {
      (*d_sols)(i, step) = (*d_sol_r)[i];
      (*d_sol0_r)[i] = (*d_sol_r)[i];
+
+    }
    }
  }
 
