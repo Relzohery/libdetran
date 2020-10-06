@@ -61,6 +61,7 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   if (d_inp->check("rom_solver_db"))
   {
     db = d_inp->template get<SP_input>("rom_solver_db");
+
   }
 
   d_solver = LinearSolverCreator::Create(db);
@@ -325,7 +326,6 @@ void TransientSolver::Solve(SP_state initial_state)
 
     }
    }
- }
 
  // reconstruct the full solution
   reconstruct();
