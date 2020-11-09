@@ -173,8 +173,11 @@ TimeStepper<D>::TimeStepper(SP_input       input,
     if (d_do_output) d_silooutput = new detran_ioutils::SiloOutput(d_mesh);
   }
 
+  // added by Rabab to train/test the rom
   flux_mat =  new callow::MatrixDense(d_material->number_groups()*d_mesh->number_cells(), d_number_steps+1);
   precursors_mat = new callow::MatrixDense(d_material->number_precursor_groups()*d_mesh->number_cells(), d_number_steps+1);
+  power_mat = new callow::MatrixDense(d_mesh->number_cells(), d_number_steps+1);
+  power = new callow::Vector(d_number_steps+1, 0.0);
 
 
 }
@@ -213,6 +216,11 @@ void TimeStepper<D>::solve(SP_state initial_state)
    for (int cell=0; cell< d_mesh->number_cells(); cell++)
    {
      (*flux_mat)(cell + g*cells, 0) = d_state->phi(g)[cell];
+
+     vec_int matmap = d_mesh->mesh_map("MATERIAL");
+     int m = matmap[cell];
+     (*power_mat)(cell, 0) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
+     (*power)[0] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
    }
   }
 
@@ -223,6 +231,14 @@ void TimeStepper<D>::solve(SP_state initial_state)
   {
     (*precursors_mat)(cell + g*cells, 0) = d_precursor->C(g)[cell];
   }
+ }
+
+ for (int g=0; g< d_material->number_precursor_groups(); g++)
+ {
+   for (int cell=0; cell< d_mesh->number_cells(); cell++)
+   {
+     (*precursors_mat)(cell + g*cells, 0) = d_precursor->C(g)[cell];
+   }
  }
 
 
@@ -295,12 +311,17 @@ void TimeStepper<D>::solve(SP_state initial_state)
     // Output the initial state
     if (d_do_output) d_silooutput->write_time_flux(i+1, d_state, true);
 
+    // added by Rabab to train/test the rom
+    vec_int matmap = d_mesh->mesh_map("MATERIAL");
 
     for (int g=0; g< d_material->number_groups(); g++)
     {
      for (int cell=0; cell< d_mesh->number_cells(); cell++)
      {
-     (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
+	 int m = matmap[cell];
+         (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
+          (*power_mat)(cell, i) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
+          (*power)[i] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
      }
     }
 
@@ -315,9 +336,6 @@ void TimeStepper<D>::solve(SP_state initial_state)
 
   } // end time steps
 
-
-  flux_mat->print_matlab("flux_snapshots.txt");
-  precursors_mat->print_matlab("precursors_snapshots.txt");
 
 }
 
