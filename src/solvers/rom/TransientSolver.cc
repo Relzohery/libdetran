@@ -323,7 +323,6 @@ void TransientSolver::Solve(SP_state initial_state)
    {
      (*d_sols)(i, step) = (*d_sol_r)[i];
      (*d_sol0_r)[i] = (*d_sol_r)[i];
-
     }
    }
 
@@ -363,6 +362,7 @@ void TransientSolver::reconstruct()
   }
   // temporary ... need to have getter for flux, etc
   d_flux->print_matlab("flux.txt");
+  d_precursors->print_matlab("precursors.txt");
 }
 
 
