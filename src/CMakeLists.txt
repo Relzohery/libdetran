@@ -158,8 +158,8 @@ endif()
 
 # This is a hack for now.  Probably worth generating a CMake finder thing.
 if(DETRAN_ENABLE_GPERFTOOLS)
-  set(GPERFTOOLS_LIBRARIES "/home/robertsj/opt/gperftools/lib/libprofiler.so")
-  set(GPERFTOOLS_INCLUDE   "/home/robertsj/opt/gperftools/include")
+  set(GPERFTOOLS_LIBRARIES "/usr/local/lib/libprofiler.so")
+  set(GPERFTOOLS_INCLUDE   "/home/rabab/opt/gperftools/src/gperftools")
   include_directories(${GPERFTOOLS_INCLUDE})
 endif()
 
