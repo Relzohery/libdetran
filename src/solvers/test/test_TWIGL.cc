@@ -27,7 +27,7 @@
 #include "ROMBasis.hh"
 #include "TransientSolver.hh"
 #include "solvers/rom/ROMSolver.hh"
-#include "/home/rabab/opt/gperftools/src/google/profiler.h"
+#include "/home/rabab/opt/gperftools/src/gperftools/profiler.h"
 
 
 using namespace detran_test;
@@ -310,8 +310,6 @@ InputDB::SP_input get_input()
   inp->put<int>("outer_print_level",        0);
   inp->put<int>("quad_number_azimuth_octant",   1);
   inp->put<int>("quad_number_polar_octant",     1);
-  inp->put<string>("operator",          "diffusion");
-
 
   // inner gmres parameters
   InputDB::SP_input db(new InputDB("inner_solver_db"));
@@ -362,12 +360,13 @@ int test_TWIGL(int argc, char *argv[])
   // MESH
   //-------------------------------------------------------------------------//
 
-  TS_2D::SP_mesh mesh = get_mesh(1);
+  TS_2D::SP_mesh mesh = get_mesh(5);
 
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
   //-------------------------------------------------------------------------//
+
   EigenvalueManager<_2D> manager(inp, mat, mesh);
   manager.solve();
   State::SP_state ic = manager.state();
@@ -434,8 +433,7 @@ int test_TWIGL(int argc, char *argv[])
 //---------------------------------------------------------------------------//
 int test_TWIGL_ROM(int argc, char *argv[])
 {
-  ProfilerStart("default.prof");
-
+ ProfilerStart("test_TWIGL_rom.prof");
  time_t begin, end;
  time(&begin);
  InputDB::SP_input inp =get_input();
@@ -463,7 +461,7 @@ int test_TWIGL_ROM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n, 15);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-
+/*
   //-------------------------- steady state ROM -----------------//
   ROMSolver<_2D> ROM(inp, mesh, mat);
   SP_vector  ROM_flux;
@@ -471,7 +469,7 @@ int test_TWIGL_ROM(int argc, char *argv[])
   ROM.Solve(basis_f, ROM_flux);
   double keff_rom = ROM.keff();
 
-
+*/
   //get initial state
 
   EigenvalueManager<_2D> manager(inp, mat, mesh);
@@ -498,10 +496,9 @@ int test_TWIGL_ROM(int argc, char *argv[])
   R.Solve(ic);
 
   SP_matrix flux;
-
+  ProfilerStop();
   time(&end);
   time_t elapsed = end - begin;
-  ProfilerStop();
 
 
  return 0;
