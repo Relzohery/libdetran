@@ -27,7 +27,9 @@
 #include "ROMBasis.hh"
 #include "TransientSolver.hh"
 #include "solvers/rom/ROMSolver.hh"
+#include <time.h>
 #include "/home/rabab/opt/gperftools/src/gperftools/profiler.h"
+
 
 
 using namespace detran_test;
@@ -79,6 +81,7 @@ public:
     , d_perturbation(perturbation)
     , d_transport(transport)
   {
+    update_material = false;
     update_impl();
   }
   // Update the materials.
@@ -146,10 +149,18 @@ public:
         double sa = 0.150;
         if (d_perturbation == 1) // RAMP
         {
-          if (t >= 0.1 && t < 0.3)
+          if (t >= 0.1 && t < 0.3+d_dt)
+          {
+            update_material = true;
             sa = 0.150 * (1.0 - 0.11667 * (t - 0.1));
-          else if (t >= 0.3)
-            sa = 0.150 * 0.97666;
+          }
+          
+          else if (t > 0.3+d_dt)
+          {
+           update_material = false;
+           sa = 0.150 * 0.976666;
+          }
+            
         }
         else if (d_perturbation == 2) // STEP
         {
@@ -316,7 +327,7 @@ InputDB::SP_input get_input()
  // db->put<double>("linear_solver_atol",                 1e-13);
  // db->put<double>("linear_solver_rtol",                 1e-13);
   db->put<string>("linear_solver_type",                 "petsc");
-  db->put<string>("pc_type",                            "petsc_pc");
+ db->put<string>("pc_type",                            "petsc_pc");
   db->put<string>("petsc_pc_type",                      "lu");
   db->put<int>("linear_solver_maxit",                   1000);
   db->put<int>("linear_solver_gmres_restart",           30);
@@ -360,7 +371,7 @@ int test_TWIGL(int argc, char *argv[])
   // MESH
   //-------------------------------------------------------------------------//
 
-  TS_2D::SP_mesh mesh = get_mesh(5);
+  TS_2D::SP_mesh mesh = get_mesh(3);
 
 
   //-------------------------------------------------------------------------//
@@ -434,6 +445,7 @@ int test_TWIGL(int argc, char *argv[])
 int test_TWIGL_ROM(int argc, char *argv[])
 {
  ProfilerStart("test_TWIGL_rom.prof");
+
  time_t begin, end;
  time(&begin);
  InputDB::SP_input inp =get_input();
@@ -497,6 +509,7 @@ int test_TWIGL_ROM(int argc, char *argv[])
 
   SP_matrix flux;
   ProfilerStop();
+
   time(&end);
   time_t elapsed = end - begin;
 
