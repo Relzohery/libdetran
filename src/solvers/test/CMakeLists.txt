@@ -121,7 +121,14 @@ ADD_TEST(test_ROM_diffusion               test_ROMSolver 0)
 ADD_TEST(test_ROM_EnergyIndependent       test_ROMSolver 1)
 ADD_TEST(test_ROM_EnergyDependent         test_ROMSolver 2)
 
+
 ADD_EXECUTABLE(test_TransientROMSolver         	 test_TransientROMSolver.cc)
 TARGET_LINK_LIBRARIES(test_TransientROMSolver    	solvers)
 ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_rom   0)
 ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_fom   1)
+
+
+ADD_EXECUTABLE(test_DEIM        	 test_DEIM.cc)
+TARGET_LINK_LIBRARIES(test_DEIM     solvers)
+ADD_TEST(test_DEIM            test_DEIM 0)
+ADD_TEST(test_offline            test_offline 1)
