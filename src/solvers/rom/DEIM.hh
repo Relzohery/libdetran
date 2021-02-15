@@ -45,7 +45,7 @@ public:
 	{
 		for (int i=0; i<d_r; i++)
 		{
-		 //std::cout << d_l[i] << "\n";
+		 std::cout << i << " l = " << d_l[i] << "\n";
 		}
       return d_l;
 	}
@@ -56,7 +56,7 @@ public:
 	}
 
 private:
-	/// rank
+	/// DEIM rank
 	unsigned int d_r;
 	/// problem size
 	unsigned int d_n;
@@ -77,6 +77,10 @@ private:
 	  p->put<double>("linear_solver_atol",                 1e-16);
 	  p->put<double>("linear_solver_rtol",                 1e-15);
 	  p->put<std::string>("linear_solver_type", "gmres");
+
+	  //p->put<std::string>("linear_solver_type", "petsc");
+	  //p->put<std::string>("pc_type", "petsc_pc");
+	  //p->put<std::string>("petsc_pc_type", "lu");
 	  p->put<int>("linear_solver_maxit", 50);
 	  p->put<int>("linear_solver_gmres_restart", 16);
 	  p->put<int>("linear_solver_maxit",                   2000);

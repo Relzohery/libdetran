@@ -42,47 +42,55 @@ void DEIM::Search()
     }
   }
   d_l[0] = l;
+
   double c = (*d_U)(l, 1)/(*d_U)(l, 0);
+  std::cout << "c = " << c << "\n";
   l = 0;
   double tmp_r = 0.0;
-  for (int i=0; i<d_n-1; i++)
+  double r0 = (*d_U)(0, 1) - c*(*d_U)(0, 0);
+  for (int i=1; i<d_n-1; i++)
   {
    double r = (*d_U)(i, 1) - c*(*d_U)(i, 0);
-   if (abs(r) > tmp_r)
+   if (std::abs(r) > std::abs(r0))
    {
-     l=i;
-     tmp_r = r;
+     l = i;
+     r0 = r;
    }
   }
   d_l[1] = l;
 
  // now, need linear solver
-  for (int i=1; i<d_r; i++)
+  for (int i=2; i<d_r+1; i++)
   {
-	std::cout << "r= " << i << " ************\n";
-
-	int M = i+1;
+	d_solver = LinearSolverCreator::Create(db);
+	int M = i;
     SP_matrixDense Ur;
     SP_matrixDense Urm;
     ///
     Ur = new MatrixDense(M, M);
     Urm = new MatrixDense(d_n, M);
+
     SP_vector b;
     b = new callow::Vector(M, 0.0);
     SP_vector x;
     x = new callow::Vector(M, 0.0);
 
-    for (int k=0; k<i+1; k++)
+    for (int k=0; k<M; k++)
     {
-     std::cout << "k= " << k << "\n";
+     //std::cout << "k= " << k << "\n";
 	 (*b)[k] = (*d_U)(d_l[k], i);
-     std::cout << (*b)[k] << " ^^^^^^^^^\n";
-     for (int m=0; m<i+1; m++)
+     //std::cout << (*b)[k] << " ^^^^^^^^^\n";
+     for (int m=0; m<M; m++)
      {
        (*Ur)(k, m) = (*d_U)(d_l[k], m);
-        std::cout <<(*Ur)(k, m)  << " ^^^^^^^^^\n";
+       //std::cout <<(*Ur)(k, m)  << " ^^^^^^^^^\n";
      }
     }
+   if (i == 2)
+   {
+     Ur->print_matlab("Ur.txt");
+     b->print_matlab("b.txt");
+   }
 
    for (int n=0; n<d_n; n++)
    {
@@ -92,25 +100,24 @@ void DEIM::Search()
     }
    }
    d_Um = Ur;
-   d_solver->set_operators(Ur);
+   d_solver->set_operators(Ur, db);
    d_solver->solve(*b, *x);
-
 
    Vector y(d_n, 0.0);
    Urm->multiply(*x, y);
-   tmp_r = 0.0;
-
+   l = 0;
+   double r0 = (*d_U)(0, i) - y[0];
    for (int ii=1; ii<d_n; ii++)
    {
      double r = (*d_U)(ii, i) - y[ii];
-     if (std::abs(r) > std::abs(tmp_r))
+     if (std::abs(r) > std::abs(r0))
      {
        l = ii;
-       tmp_r = r;
+       r0 = r;
      }
    }
-   d_l[i+1] = l;
-   std::cout << "########################\n";
+   d_l[i] = l;
+   //std::cout << "########################\n";
 
  }
   std::cout << "########################\n";
