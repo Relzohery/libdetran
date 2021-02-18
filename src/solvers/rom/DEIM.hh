@@ -19,8 +19,6 @@
 #include "OperatorProjection.hh"
 #include "utilities/InputDB.hh"
 #include <iostream>
-#include <cmath>
-
 
 using namespace callow;
 
@@ -28,9 +26,9 @@ namespace detran
 {
 class DEIM
 {
-public:
-	typedef MatrixDense::SP_matrix  SP_matrixDense;
-	typedef MatrixBase::SP_matrix  SP_matrix;
+  public:
+    typedef MatrixDense::SP_matrix  SP_matrixDense;
+	typedef MatrixBase::SP_matrix   SP_matrix;
 	typedef LinearSolverCreator::SP_solver            SP_solver;
 	typedef callow::Vector::SP_vector                 SP_vector;
 	typedef detran_utilities::InputDB::SP_input       SP_input;
@@ -38,41 +36,42 @@ public:
 	DEIM(SP_matrixDense U, int r);
 
 	virtual ~DEIM(){}
-	Vector matrix_to_vector();
+
 	void Search();
-	SP_matrix vector_to_matrix();
+
+	/// getter of the interpolation indices
 	int* interpolation_indices()
 	{
-		for (int i=0; i<d_r; i++)
-		{
-		 std::cout << i << " l = " << d_l[i] << "\n";
-		}
+	  for (int i=0; i<d_r; i++)
+	  {
+	    std::cout << i << " l = " << d_l[i] << "\n";
+	  }
       return d_l;
 	}
 
 	SP_matrixDense ReducedBasis()
 	{
-		return d_Um;
+	  return d_Um;
 	}
 
-private:
-	/// DEIM rank
-	unsigned int d_r;
-	/// problem size
-	unsigned int d_n;
-	// interpolation indices
-	int* d_l;
-	/// operator basis
-	SP_matrixDense d_U;
-	/// reduced basis
-	SP_matrixDense d_Um;
-	/// linear solver
-	SP_solver d_solver;
+  private:
+    /// DEIM rank
+    unsigned int d_r;
+    /// problem size
+    unsigned int d_n;
+    /// interpolation indices
+    int* d_l;
+    /// operator basis
+    SP_matrixDense d_U;
+    /// reduced basis
+    SP_matrixDense d_Um;
+    /// linear solver
+    SP_solver d_solver;
 
-	LinearSolverCreator::SP_db db;
-	LinearSolver::SP_db get_db()
-	{
-	  LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
+    LinearSolverCreator::SP_db db;
+    LinearSolver::SP_db get_db()
+    {
+      LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
 
 	  p->put<double>("linear_solver_atol",                 1e-16);
 	  p->put<double>("linear_solver_rtol",                 1e-15);
@@ -81,15 +80,15 @@ private:
 	  //p->put<std::string>("linear_solver_type", "petsc");
 	  //p->put<std::string>("pc_type", "petsc_pc");
 	  //p->put<std::string>("petsc_pc_type", "lu");
-	  p->put<int>("linear_solver_maxit", 50);
+      p->put<int>("linear_solver_maxit", 50);
 	  p->put<int>("linear_solver_gmres_restart", 16);
 	  p->put<int>("linear_solver_maxit",                   2000);
 	  p->put<int>("linear_solver_gmres_restart",           30);
 	  p->put<int>("linear_solver_monitor_level",           0);
 
 	  return p;
-	}
-
+ }
+    void findIndex(int col);
 };
 } /// end of namespace
 

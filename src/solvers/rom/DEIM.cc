@@ -6,7 +6,6 @@
  */
 
 #include "DEIM.hh"
-#include <cmath>
 
 namespace detran
 {
@@ -16,7 +15,6 @@ DEIM::DEIM(SP_matrixDense U, int r)
  d_U(U),
  d_n(U->number_rows())
 {
-	 std::cout << "******* DEIM *********\n";
 
 }
 
@@ -31,10 +29,9 @@ void DEIM::Search()
   // get the first interpolation point
   for (int j=0; j<d_n-1; j++)
   {
-	// this needs to be the absolute value.
 	double v1 = (*d_U)(j+1, 0);
-
 	double v2 = (*d_U)(tmp, 0);
+
     if (std::abs(v1) > std::abs(v2))
     {
       tmp = j+1;
@@ -44,7 +41,6 @@ void DEIM::Search()
   d_l[0] = l;
 
   double c = (*d_U)(l, 1)/(*d_U)(l, 0);
-  std::cout << "c = " << c << "\n";
   l = 0;
   double tmp_r = 0.0;
   double r0 = (*d_U)(0, 1) - c*(*d_U)(0, 0);
@@ -77,20 +73,12 @@ void DEIM::Search()
 
     for (int k=0; k<M; k++)
     {
-     //std::cout << "k= " << k << "\n";
 	 (*b)[k] = (*d_U)(d_l[k], i);
-     //std::cout << (*b)[k] << " ^^^^^^^^^\n";
      for (int m=0; m<M; m++)
      {
        (*Ur)(k, m) = (*d_U)(d_l[k], m);
-       //std::cout <<(*Ur)(k, m)  << " ^^^^^^^^^\n";
      }
     }
-   if (i == 2)
-   {
-     Ur->print_matlab("Ur.txt");
-     b->print_matlab("b.txt");
-   }
 
    for (int n=0; n<d_n; n++)
    {
@@ -117,13 +105,6 @@ void DEIM::Search()
      }
    }
    d_l[i] = l;
-   //std::cout << "########################\n";
-
  }
-  std::cout << "########################\n";
-
 }
-
 }
-
-
