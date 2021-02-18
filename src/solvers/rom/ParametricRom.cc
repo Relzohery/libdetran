@@ -23,24 +23,19 @@ ParametricRom<D>::ParametricRom(SP_matrixDense Uf, SP_matrixDense UL, SP_matrixD
  Require(mat);
  Require(mesh);
 
- std::cout << "******* 1 *********\n";
  MDEIM_L();
 
- std::cout << "******* 2 *********\n";
  MDEIM_R();
- std::cout << "******* 3 *********\n";
+
  Set_FullOperators();
 
- std::cout << "******* 4 *********\n";
  reduced_matrices();
-
- std::cout << "******* 5 *********\n";
 
  compute_coefficients();
 
  construct_Operator();
 
- solve();
+ //solve();
 }
 
 template <class D>
@@ -80,11 +75,11 @@ void ParametricRom<D>::MDEIM_R()
 template <class D>
 void ParametricRom<D>::reduced_matrices()
 {
- offline_stage off_L(d_A, d_Uf, d_UL, d_r);
+  offline_stage off_L(d_A, d_Uf, d_UL, d_r);
   M_L = off_L.VectorToMatrix();
-//
-   offline_stage off_R(d_B, d_Uf, d_UR, d_r);
-   M_R = off_R.VectorToMatrix();
+  //
+  offline_stage off_R(d_B, d_Uf, d_UR, d_r);
+  M_R = off_R.VectorToMatrix();
 
 }
 
