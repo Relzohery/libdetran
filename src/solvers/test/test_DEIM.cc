@@ -51,7 +51,7 @@ int test_DEIM(int argc, char *argv[])
 
  SP_matrix U;
  U = new callow::MatrixDense(976, 976);
- const char* fname= "/home/rabab/Desktop/DEIM_basis";
+ const char* fname= "/home/rabab/Desktop/DEIM_basis_R";
  ROMBasis::GetBasis(fname, U);
 
  DEIM D(U, 20);
@@ -63,7 +63,7 @@ int test_DEIM(int argc, char *argv[])
 
  DEIM D2(U, 20);
  D2.Search();
- int* l2 = D2.interpolation_indices();
+ //int* l2 = D2.interpolation_indices();
 return 0;
 }
 
@@ -98,13 +98,16 @@ int test_offline(int argc, char *argv[])
   SP_gainoperator B (new DiffusionGainOperator(input, mat, mesh, false));
 
   d_A = A;
-  //offline_stage off(A, Uf, UL, 2);
+  offline_stage off(A, Uf, UL, 2);
+  R.solve();
+
   //off.VectorToMatrix();
   EigenvalueManager<_1D> manager(input, mat, mesh);
- //manager.solve();
-  //double keff_fom = manager.state()->eigenvalue();
 
-  //std::cout << keff_fom << "\n";
+  manager.solve();
+  double keff_fom = manager.state()->eigenvalue();
+
+  std::cout << keff_fom << "\n";
 
 
 return 0;
