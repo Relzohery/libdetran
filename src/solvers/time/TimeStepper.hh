@@ -22,6 +22,8 @@
 #include "utilities/Definitions.hh"
 #include "utilities/SP.hh"
 #include "transport/State.hh"
+#include "callow/matrix/MatrixDense.hh"
+
 #include <cstdio>
 #include "callow/matrix/MatrixDense.hh"
 namespace detran
@@ -123,7 +125,9 @@ public:
   SP_matrix flux_mat;
   SP_matrix precursors_mat;
   SP_matrix power_mat;
+  SP_matrix LossMatrix_snaps;
   SP_vector power;
+
   /// Set a user-defined monitor function.
   void set_monitor(monitor_pointer monitor, void* monitor_data = NULL)
   {
