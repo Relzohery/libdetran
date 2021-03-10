@@ -5,15 +5,13 @@
  *      Author: rabab
  */
 
-#ifndef SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
-#define SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
+//#ifndef SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
+//#define SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
 
-#include "DEIM.hh"
 #include "utilities/InputDB.hh"
 #include "material/Material.hh"
 #include "geometry/Mesh.hh"
-#include "OperatorProjection.hh"
-
+#include "solvers/rom/DEIM.hh"
 
 class offline_stage
 {
@@ -25,11 +23,13 @@ class offline_stage
 	typedef MatrixDense::SP_matrix                    SP_matrixDense;
 	typedef std::vector<SP_matrixDense>               vec_matrix;
 
-	offline_stage(SP_matrix A, SP_matrixDense UD, SP_matrixDense Uf, unsigned int r);
+	offline_stage(SP_matrix A, SP_matrixDense Uf, SP_matrixDense UD, unsigned int r);
 
-	vec_matrix VectorToMatrix();
+	vec_matrix Decompositon();
 
-    void project();
+	double* Interpolation_indices;
+
+	SP_matrixDense Ur_deim;
 
   private:
 	int d_nnz;
@@ -48,4 +48,4 @@ class offline_stage
 
 
 
-#endif /* SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_ */
+//#endif /* SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_ */

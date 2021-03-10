@@ -9,13 +9,16 @@
 
 #include "TransientSolver.hh"
 
+
 TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material material,
-		                 SP_matrix flux_basis, SP_matrix precursors_basis)
+		                 SP_matrix flux_basis, SP_matrix precursors_basis, SP_matrix Udeim, bool deim)
 :d_mesh(mesh),
  d_material(material),
  d_inp(inp),
  d_precursors_basis(precursors_basis),
- d_flux_basis(flux_basis)
+ d_flux_basis(flux_basis),
+ d_deim_basis(Udeim),
+ deim_flag (deim)
 {
   d_num_cells = d_mesh->number_cells();
   d_number_groups = d_material->number_groups();
@@ -138,7 +141,7 @@ void TransientSolver::Construct_Operator(double t, double dt)
   d_precursors_production = K.precursors_production();
 
   // if diffusion
-  SP_lossoperator L(new DiffusionLossOperator(d_inp, d_material, d_mesh, false, 0.0, false, 1.0));
+  SP_lossoperator L(new DiffusionLossOperator(d_inp, d_material, d_mesh, false, 0.0, false, 1.0, false));
   d_L = L;
 
   SP_gainoperator G(new DiffusionGainOperator(d_inp, d_material, d_mesh, false));
@@ -203,7 +206,6 @@ void TransientSolver::Construct_Operator(double t, double dt)
 
   Projector.Project(d_Gr);
 
-
   Projector.SetOperators(d_L_prime, d_flux_basis);
   Projector.Project(d_Lr);
 
@@ -247,18 +249,26 @@ void TransientSolver::Construct_Operator(double t, double dt)
 void TransientSolver::Refersh_Operator()
 {
   // if diffusion
-  SP_lossoperator L(new DiffusionLossOperator(d_inp, d_material, d_mesh, false, 0.0, false, 1.0));
+  SP_lossoperator L(new DiffusionLossOperator(d_inp, d_material, d_mesh, false, 0.0, false, 1.0, false));
   d_L = L;
 
   int * rows_L = d_L->rows();
   int* cols_L = d_L->columns();
   double* v_L = d_L->values();
+  vectorized_matrix = v_L;
 
+  if (deim_flag)
+  {
+   online();
+  }
+  else
+  {
   d_Lr = new callow::MatrixDense(d_rf, d_rf);
 
   OperatorProjection Projector(1);
   Projector.SetOperators(d_L, d_flux_basis);
   Projector.Project(d_Lr);
+  }
   const vec_int &mat_map = d_mesh->mesh_map("MATERIAL");
 
   // this assumes that a basis set is generated for each flux group, so the velocity
@@ -282,22 +292,33 @@ void TransientSolver::Solve(SP_state initial_state)
 {
   d_material->update(0.0, 0, 1, false);
 
+  std::cout << "construct operator ******\n";
+
   Construct_Operator(0, d_dt);
 
   d_state = initial_state;
 
+  std::cout << "initialize_precursors ******\n";
   initialize_precursors();
 
   ProjectInitial();
 
   double t = 0.0;
+
   int n = d_rf + d_rc;
 
   SP_matrix d_A_;
   d_A_ = new callow::MatrixDense(n, n);
 
+  if (deim_flag)
+  {
+    offline();
+  }
+
   for (int step=0 ; step< d_number_steps; step++)
   {
+	//fluxes.clear();
+	std::cout << "step  = "<< step << "\n";
     t += d_dt;
     d_material->update(t, d_dt, 1, false);
 
@@ -313,7 +334,7 @@ void TransientSolver::Solve(SP_state initial_state)
         (*d_A_)(i, j) = -(*d_A)(i, j)*d_dt;
         if (i == j) (*d_A_)(i, j) += 1;
       }
-   }
+    }
 
    d_solver->set_operators(d_A_, db);
    d_solver->solve(*d_sol0_r, *d_sol_r);
@@ -321,48 +342,190 @@ void TransientSolver::Solve(SP_state initial_state)
    // store this state in the solution matrix
    for (int i=0; i<n; i++)
    {
-     (*d_sols)(i, step) = (*d_sol_r)[i];
+     //(*d_sols)(i, step) = (*d_sol_r)[i];
      (*d_sol0_r)[i] = (*d_sol_r)[i];
-    }
    }
 
- // reconstruct the full solution
-  reconstruct();
-}
-
-//------------------------------------------------------------------------------------//
-
-void TransientSolver::reconstruct()
-{
-  callow::Vector phi(d_number_groups*d_num_cells, 0.0);
-  callow::Vector C(d_precursors_group*d_num_cells, 0.0);
-
-  callow::Vector v1(d_rf, 0.0);
-  callow::Vector v2(d_rc, 0.0);
-
-  for (int i=0; i<d_number_steps; i++)
-  {
-    for (int f=0; f< d_rf; f++)
-    {
-      v1[f] = (*d_sols)(f, i);
-    }
-    d_flux_basis->multiply(v1, phi);
-
-    for (int p=0; p<d_rc; p++)
-    {
-      v2[p] = (*d_sols)(p + d_rf, i);
-    }
-
-    d_precursors_basis->multiply(v2, C);
-    double *phi_ = &phi[0];
-    double *C_ = &C[0];
-
-    d_flux->insert_col(i+1, phi_, 0);
-    d_precursors->insert_col(i+1, C_, 0);
+   if (d_multiphysics) *d_multiphysics_0 = *d_multiphysics;
+   // reconstruct the full solution
+   reconstruct(step);
+   std::cout << " update multi physics **********\n";
+   if (d_multiphysics) update_multiphysics( t, d_dt, 1);
+   std::cout << " updated multi physics **********\n";
   }
   // temporary ... need to have getter for flux, etc
   d_flux->print_matlab("flux.txt");
   d_precursors->print_matlab("precursors.txt");
 }
 
+//------------------------------------------------------------------------------------//
+
+void TransientSolver::reconstruct(int step)
+
+{
+  //std::cout << "reconstructing &&&&&&&&&&&&&&&&&&\n";
+  callow::Vector phi(d_number_groups*d_num_cells, 0.0);
+  callow::Vector C(d_precursors_group*d_num_cells, 0.0);
+
+  callow::Vector v1(d_rf, 0.0);
+  callow::Vector v2(d_rc, 0.0);
+
+  for (int f=0; f< d_rf; f++)
+  {
+    v1[f] = (*d_sol_r)(f);
+  }
+  d_flux_basis->multiply(v1, phi);
+
+  for (int p=0; p<d_rc; p++)
+  {
+    v2[p] = (*d_sol_r)(p + d_rf);
+  }
+
+  d_precursors_basis->multiply(v2, C);
+  double *phi_ = &phi[0];
+  double *C_ = &C[0];
+
+  d_flux->insert_col(step+1, phi_, 0);
+  d_precursors->insert_col(step+1, C_, 0);
+
+  //std::cout << "phi[0][0]= " << phi[0] << " \n";
+
+  ///
+  fluxes.clear();
+
+  for (int g=0; g<d_number_groups; g++)
+  {
+    callow::Vector phi_g(d_num_cells, 0.0);
+    for (int i=0; i<d_num_cells; i++)
+    {
+     phi_g[i] = phi[d_num_cells*g + i];
+    }
+
+    fluxes.push_back(phi_g);
+  }
+ // std::cout << "fluxes[0][0]= " << fluxes[0][0] << " ***\n";
+  //std::cout << "reconstructed &&&&&&&&&&&&&&&&&&\n";
+
+}
+
+//------------------------------------------------------------------------------//
+
+void TransientSolver::offline()
+{
+   DEIM D(d_deim_basis, 3);
+   D.Search();
+   l = D.interpolation_indices();
+   Ur_deim = new callow::MatrixDense(3, 3);
+   Ur_deim = D.ReducedBasis();
+
+   offline_stage O(d_L, d_flux_basis, d_deim_basis, 3);
+
+   M_L = O.Decompositon();
+
+   LinearSolverCreator::SP_db db_deim;
+   db_deim = get_db();
+
+   d_solver_deim = LinearSolverCreator::Create(db_deim);
+
+   d_solver_deim->set_operators(Ur_deim, db_deim);
+}
+
+//----------------------------------------------------------------------------//
+void TransientSolver::online()
+{
+
+	d_x_deim = new callow::Vector(3, 0.0);
+	d_b_deim = new callow::Vector(3, 0.0);
+
+	for (int i=0; i<3; i++)
+	{
+	  int id = l[i];
+     (*d_b_deim)(i) = vectorized_matrix[id];
+	}
+
+	d_solver_deim->solve(*d_b_deim, *d_x_deim);
+
+	d_Lr = new callow::MatrixDense(d_rf, d_rf);
+
+	double v;
+	// construct the Left operator
+	for (int r=0; r< 3; r++)
+	{
+	  for (int i=0; i<d_rf; i++)
+	  {
+	    for (int j=0; j<d_rf; j++)
+
+	  {
+	    v = (*d_x_deim)[r]*(*M_L[r])(i, j);
+	    d_Lr->insert(i, j, v, 1);
+	  }
+	 }
+	}
+
+}
+
+//----------------------------------------------------------------------------//
+
+void TransientSolver::
+set_multiphysics(SP_multiphysics ic,
+                 multiphysics_pointer_rom update_multiphysics_rhs_rom,
+                 void* multiphysics_data)
+{
+
+  int d_order= 1;
+  // Preconditions
+  Require(ic);
+  Require(update_multiphysics_rhs_rom);
+
+  std::cout << " ic T=" << ic->variable(0)[0] << std::endl;
+
+  d_multiphysics            = ic;
+  d_update_multiphysics_rhs_rom = update_multiphysics_rhs_rom;
+  d_multiphysics_data       = multiphysics_data;
+
+  // Create previous physics states
+  d_vec_multiphysics.resize(d_order);
+  d_multiphysics_0 = new MultiPhysics(*ic);
+  for (int i = 0; i < d_order; ++i)
+  {
+    d_vec_multiphysics[i] = new MultiPhysics(*ic);
+  }
+  std::cout << d_vec_multiphysics[0]->variable(0)[0] << std::endl;
+  std::cout << " ic T=" << d_multiphysics->variable(0)[0] << std::endl;
+}
+
+//----------------------------------------------------------------------------//
+
+void TransientSolver::
+update_multiphysics(const double t, const double dt, const size_t order)
+{
+  // Update the right hand side.  The result is placed into
+  // the working vector d_multiphysics
+  std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
+  d_update_multiphysics_rhs_rom(d_multiphysics_data, fluxes, t, dt);
+  //std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
+  std::cout << "fluxes[0][0] = " << fluxes[0][0] << "\n";
+
+  // Loop through and compute
+  //  y(n+1) = (1/a0) * ( dt*rhs + sum of bdf terms )
+  for (size_t i = 0; i < d_multiphysics->number_variables(); ++i)
+  {
+    // Reference to P(n+1)
+    MultiPhysics::vec_dbl &P   = d_multiphysics->variable(i);
+
+    //std::cout << " Pold[0]=" << P[0] << std::endl;
+    printf("delP = %18.12e \n", P[0]);
+    printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
+
+    // Loop over all elements (usually spatial)
+    for (int j = 0; j < P.size(); ++j)
+    {
+      double v = dt * P[j];
+      for (size_t k = 1; k <= order; ++k)
+        v += bdf_coefs[order-1][k] * d_vec_multiphysics[k-1]->variable(i)[j];
+      P[j] = v / bdf_coefs[order-1][0];
+    } // end element loop
+    std::cout << " Pnew[0]=" << P[0] - 300.0 << std::endl;
+  } // end variable loop
+}
 

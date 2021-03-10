@@ -9,6 +9,7 @@
 
 #include "LRA.hh"
 
+
 namespace detran_user
 {
 
@@ -59,6 +60,7 @@ LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady)
 //---------------------------------------------------------------------------//
 void LRA::set_state(SP_state state)
 {
+  std::cout << "setting state *********************\n";
   Require(state);
   d_state = state;
 }
@@ -156,7 +158,11 @@ void LRA::update_impl()
     // update the FAST cross section
     double sigma_a1 = A1[m];
     if (m != REFLECTOR) // only FUEL has feedback
+    {
+      //std::cout << d_t << "  " << "T here = " << T[i] << "\n";
       sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T[i]) - std::sqrt(300.0)));
+
+    }
     double delta_1  = sigma_a1 - A1[m];
 
     if (d_flag)
@@ -182,6 +188,8 @@ void LRA::update_impl()
 //---------------------------------------------------------------------------//
 void LRA::update_P_and_T(double t, double dt)
 {
+ std::cout << "update P and T using state *********************\n";
+
   // Get fluxes
   const detran::State::moments_type &phi0 = d_state->phi(0);
   const detran::State::moments_type &phi1 = d_state->phi(1);
@@ -196,10 +204,32 @@ void LRA::update_P_and_T(double t, double dt)
     d_P[i] = KAPPA * F;
     if (t > 0.0)
       T[i] = ALPHA * F;
+      //d_physics->variable(0)[i] = ALPHA * F;
   }
   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * phi0[0] + sigma_f(0, 1) * phi1[0] << std::endl;
 }
 
+//---------------------------------------------------------------------------//
+void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double dt)
+{
+
+ // Get fluxes
+//  const detran::State::moments_type &phi0 = d_state->phi(0);
+//  const detran::State::moments_type &phi1 = d_state->phi(1);
+
+  // Compute power and temperature.  Note, we "unscale" by keff.
+  vec_dbl &T = d_physics->variable(0);
+  double F = 0;
+  for (size_t i = 0; i < d_mesh->number_cells(); ++i)
+  {
+    F = sigma_f(i, 0) * fluxes[0][i] + sigma_f(i, 1) * fluxes[1][i];
+
+    d_P[i] = KAPPA * F;
+    if (t > 0.0)
+      T[i] = ALPHA * F;
+  }
+   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * fluxes[0][0] + sigma_f(0, 1) * fluxes[1][0] << std::endl;
+}
 
 
 

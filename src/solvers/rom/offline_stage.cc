@@ -5,9 +5,9 @@
  *      Author: rabab
  */
 
-
-
 #include "offline_stage.hh"
+
+
 typedef MatrixDense::SP_matrix                    SP_matrixDense;
 typedef std::vector<SP_matrixDense>               vec_matrix;
 
@@ -27,46 +27,52 @@ offline_stage::offline_stage(SP_matrix A, SP_matrixDense Uf, SP_matrixDense UD, 
    //Ensure(A->number_nonzeros() == UD->number_rows());
    int d_n = A->number_columns();
    int d_m = A->number_rows();
+
+ //DEIM D(d_U, d_r);
+//   D.Search();
+//   Interpolation_indices = D.interpolation_indices();
+//   Ur_deim = new callow::MatrixDense(d_r, d_r);
+//   Ur_deim = D.ReducedBasis();
 }
 
-vec_matrix offline_stage::VectorToMatrix()
+vec_matrix offline_stage::Decompositon()
 {
-
   detran::OperatorProjection projector(1);
+
+  int rank = d_Uf->number_columns();
+
+  Vector y(d_n, 0.0);
+  Vector y2(rank, 0.0);
+  // convert each vector to matrix and project
   for (int r=0; r< d_r; r++)
-  { int nz = 0;
-	callow::Matrix::SP_matrix d_A_prime;
-	d_A_prime = new callow::Matrix(d_m, d_n, d_operator->number_nonzeros());
-    Matrix Ai(*d_operator);
-    for (int i=0; i<d_m; i++)
-    {
-      for (int c= d_operator->rows()[i]; c< d_operator->rows()[i+1]; c++)
-      {
-        double v = (*d_U)(nz, r);
-        d_A_prime->insert(i, d_operator->columns()[c], v);
-        nz += 1;
-      }
-    }
-    d_A_prime->assemble();
-    d_A_prime->print_matlab("A1.txt");
-
-    projector.SetOperators(d_A_prime, d_Uf);
-
-    d_Uf->print_matlab("flux_basis.txt");
-
-    int rank = d_Uf->number_columns();
+  {
     SP_matrixDense Ar;
-    Ar = new callow::MatrixDense(rank, rank);
+	Ar = new callow::MatrixDense(rank, rank);
+	// loop over each column of Uf
+    for (int rb=0; rb<rank ; rb++)
+    {
+      int nz = 0;
+      for (int i = 0; i < d_m; ++i)
+      {
+        double temp = 0.0;
+        // for all columns
+        for (int p = d_rows[i]; p < d_rows[i + 1]; ++p)
+        {
+          int j = d_operator->columns()[p];
 
-    projector.Project(Ar);
-    Ar->print_matlab("expanded_matrices.txt");
+          temp += (*d_Uf)(j, rb )*(*d_U)(nz, r);
+          nz += 1;
+        }
+        y[i] = temp;
+      }
+
+     d_Uf->multiply_transpose(y, y2);
+     double *y_ = &y2[0];
+     Ar->insert_col(rb, y_, 0);
+   }
     Aq.push_back(Ar);
-  }
+
+  } // columns of U-DEIM
+
 return Aq;
-}
-
-void offline_stage::project()
-{
-
-
 }

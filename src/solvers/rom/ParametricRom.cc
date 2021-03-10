@@ -41,7 +41,7 @@ ParametricRom<D>::ParametricRom(SP_matrixDense Uf, SP_matrixDense UL, SP_matrixD
 template <class D>
 void ParametricRom<D>::Set_FullOperators()
 {
-  SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0));
+  SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0, false));
 
   SP_gainoperator B (new DiffusionGainOperator(d_input, d_mat, d_mesh, false));
 
@@ -76,10 +76,10 @@ template <class D>
 void ParametricRom<D>::reduced_matrices()
 {
   offline_stage off_L(d_A, d_Uf, d_UL, d_r);
-  M_L = off_L.VectorToMatrix();
+  M_L = off_L.Decompositon();
   //
   offline_stage off_R(d_B, d_Uf, d_UR, d_r);
-  M_R = off_R.VectorToMatrix();
+  M_R = off_R.Decompositon();
 
 }
 

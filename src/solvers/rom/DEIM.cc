@@ -21,6 +21,7 @@ DEIM::DEIM(SP_matrixDense U, int r)
 
 void DEIM::Search()
 {
+  SP_matrixDense Urm;
   db = get_db();
   d_solver = LinearSolverCreator::Create(db);
   d_l = new int[d_r];
@@ -56,12 +57,11 @@ void DEIM::Search()
   d_l[1] = l;
 
  // now, need linear solver
-  for (int i=2; i<d_r+1; i++)
+  for (int i=2; i<d_r; i++)
   {
 	d_solver = LinearSolverCreator::Create(db);
 	int M = i;
-    SP_matrixDense Ur;
-    SP_matrixDense Urm;
+
     ///
     Ur = new MatrixDense(M, M);
     Urm = new MatrixDense(d_n, M);
@@ -105,6 +105,17 @@ void DEIM::Search()
      }
    }
    d_l[i] = l;
+
  }
+
+  Ur = new MatrixDense(d_r, d_r);
+  for (int k=0; k<d_r; k++)
+  {
+  	for (int m=0; m<d_r; m++)
+  	{
+  	  (*Ur)(k, m) = (*d_U)(d_l[k], m);
+  	}
+  }
+
 }
 }

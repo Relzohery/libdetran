@@ -42,16 +42,12 @@ class DEIM
 	/// getter of the interpolation indices
 	int* interpolation_indices()
 	{
-	  for (int i=0; i<d_r; i++)
-	  {
-	    std::cout << i << " l = " << d_l[i] << "\n";
-	  }
       return d_l;
 	}
 
 	SP_matrixDense ReducedBasis()
 	{
-	  return d_Um;
+	  return Ur;
 	}
 
   private:
@@ -67,6 +63,8 @@ class DEIM
     SP_matrixDense d_Um;
     /// linear solver
     SP_solver d_solver;
+    ///
+    SP_matrixDense Ur;
 
     LinearSolverCreator::SP_db db;
     LinearSolver::SP_db get_db()

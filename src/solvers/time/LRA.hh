@@ -80,6 +80,7 @@ public:
   void set_state(SP_state);
   void initialize_materials();
   void update_P_and_T(double t, double dt);
+  void update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double dt);
   vec_dbl T() {return d_T;}
   vec_dbl P() {return d_P;}
   SP_multiphysics physics() {return d_physics;}
@@ -142,10 +143,29 @@ void update_T_rhs(void* data,
   // cast data as LRA
   LRA* mat = (LRA*) data;
 
-  std::cout << mat->physics()->variable(0)[0] << " "
-            << step->multiphysics()->variable(0)[0] << std::endl;
+//  std::cout << mat->physics()->variable(0)[0] << " "
+//            << step->multiphysics()->variable(0)[0] << std::endl;
   // update
   mat->update_P_and_T(t, dt);
+}
+
+
+//---------------------------------------------------------------------------//
+template <class D>
+void update_T_rhs(void* data,
+		          std::vector<callow::Vector>  fluxes,
+                  double t,
+                  double dt)
+{
+  Require(data);
+
+  // cast data as LRA
+  LRA* mat = (LRA*) data;
+
+//  std::cout << mat->physics()->variable(0)[0] << " "
+//            << step->multiphysics()->variable(0)[0] << std::endl;
+  // update
+  mat->update_P_and_T(fluxes, t, dt);
 }
 } // end namespace detran_user
 

@@ -203,9 +203,10 @@ void TimeStepper<D>::solve(SP_state initial_state)
    typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
    SP_lossoperator d_M;
    d_M = new DiffusionLossOperator(d_input, d_material, d_mesh,
-                                      d_multiply, 0, 1, 1);
-   double* d_nnzeros = d_M->values();
-   LossMatrix_snaps = new callow::MatrixDense(d_M->number_nonzeros(), d_number_steps+1);
+		   false, 0.0, false, 1.0);
+   //double* d_nnzeros = d_M->values();
+   //std::cout << d_M->number_nonzeros() << "\n";
+   //LossMatrix_snaps = new callow::MatrixDense(d_M->number_nonzeros(), d_number_steps+1);
 
    /////
 
@@ -301,12 +302,11 @@ void TimeStepper<D>::solve(SP_state initial_state)
       step(t, dt, order, flag);
 
       // added by RABAB
-	  d_M = new DiffusionLossOperator(d_input, d_material, d_mesh,
-                                         d_multiply, 0, 1, 1);
-	  double* d_nnzeros = d_M->values();
-	  LossMatrix_snaps->insert_col(i-1, d_nnzeros);
+	  //d_M = new DiffusionLossOperator(d_input, d_material, d_mesh,
+		//	  false, 0.0, false, 1.0);
+	 // double* d_nnzeros = d_M->values();
+	 // LossMatrix_snaps->insert_col(i-1, d_nnzeros);
       ////
->>>>>>> added snapshots  matrices
       bool converged = check_convergence();
       if (iteration == d_maximum_iterations) converged = true;
 
@@ -336,7 +336,7 @@ void TimeStepper<D>::solve(SP_state initial_state)
          for (int cell=0; cell< d_mesh->number_cells(); cell++)
          {
     	 int m = matmap[cell];
-         (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
+          (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
           (*power_mat)(cell, i) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
           (*power)[i] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
          }
@@ -351,7 +351,7 @@ void TimeStepper<D>::solve(SP_state initial_state)
         }
        }
 
-        LossMatrix_snaps->print_matlab("lossmatrix_snapshots.txt");
+        //LossMatrix_snaps->print_matlab("lossmatrix_snapshots.txt");
 
   } // end time steps
 
@@ -500,7 +500,6 @@ void TimeStepper<D>::update_multiphysics(const double t,
   //  y(n+1) = (1/a0) * ( dt*rhs + sum of bdf terms )
   for (size_t i = 0; i < d_multiphysics->number_variables(); ++i)
   {
-
     // Reference to P(n+1)
     MultiPhysics::vec_dbl &P   = d_multiphysics->variable(i);
 

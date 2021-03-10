@@ -17,6 +17,8 @@
 #include "solvers/mg/DiffusionGainOperator.hh"
 #include "kinetics/TimeDependentMaterial.hh"
 #include "kinetics/KineticsMaterial.hh"
+#include "kinetics/MultiPhysics.hh"
+#include "time/TimeStepper.hh"
 #include "callow/matrix/MatrixShell.hh"
 #include "callow/matrix/Matrix.hh"
 #include "callow/vector/Vector.hh"
@@ -25,8 +27,10 @@
 #include "kinetics/SyntheticSource.hh"
 #include "utilities/Definitions.hh"
 #include "OperatorProjection.hh"
+#include "transport/State.hh"
 #include "KineticMatrices.hh"
-
+#include "offline_stage.hh"
+#include "DEIM.hh"
 
 using namespace detran;
 using namespace callow;
@@ -49,11 +53,52 @@ public:
   typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
   typedef LinearSolverCreator::SP_solver            SP_solver;
   typedef callow::Matrix::SP_matrix                 SP_matrix_Base;
+  typedef std::vector<SP_matrix>                    vec_matrix;
+  typedef detran_utilities::SP<MultiPhysics>        SP_multiphysics;
+  typedef std::vector<callow::Vector>                    vec_flux;
+
+  typedef void (*multiphysics_pointer_rom)
+                (void*, vec_flux fluxes, double, double);
+  typedef std::vector<SP_multiphysics>              vec_multiphysics;
 
 
-  TransientSolver(SP_input inp, SP_mesh mesh, SP_material material, SP_matrix flux_basis, SP_matrix precursors_basis);
+  TransientSolver(SP_input inp, SP_mesh mesh, SP_material material, SP_matrix flux_basis, SP_matrix precursors_basis,
+		          SP_matrix Udeim, bool deim);
 
   void Solve(SP_state initial_state);
+
+  void offline();
+
+  void online();
+
+  LinearSolverCreator::SP_db db_deim;
+  LinearSolver::SP_db get_db()
+  {
+	LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
+
+  p->put<double>("linear_solver_atol",                 1e-16);
+  p->put<double>("linear_solver_rtol",                 1e-15);
+  p->put<std::string>("linear_solver_type", "gmres");
+
+  //p->put<std::string>("linear_solver_type", "petsc");
+  //p->put<std::string>("pc_type", "petsc_pc");
+  //p->put<std::string>("petsc_pc_type", "lu");
+  p->put<int>("linear_solver_maxit", 50);
+  p->put<int>("linear_solver_gmres_restart", 16);
+  p->put<int>("linear_solver_maxit",                   2000);
+  p->put<int>("linear_solver_gmres_restart",           30);
+  p->put<int>("linear_solver_monitor_level",           0);
+
+  return p;
+}
+
+void set_multiphysics(SP_multiphysics ic,
+                      multiphysics_pointer_rom update_multiphysics_rhs,
+                      void* multiphysics_data = NULL);
+
+void update_multiphysics(const double t, const double dt, const size_t order);
+
+std::vector<callow::Vector>  fluxes;
 
 private:
   /// State vector
@@ -87,6 +132,7 @@ private:
   SP_matrix d_flux_r;
   /// Reduced precursors vector
   SP_matrix d_precursors_r;
+  double* vectorized_matrix;
 
   /// Time step size
   double d_dt;
@@ -99,6 +145,8 @@ private:
   SP_mesh d_mesh;
   /// Input
   SP_input d_inp;
+  ///
+  SP_input d_inp_deim;
   /// Solver setting
   SP_input db;
   /// Material
@@ -107,6 +155,8 @@ private:
   SP_matrix d_flux_basis;
   /// Precursors basis
   SP_matrix d_precursors_basis;
+  /// DEIM basis
+  SP_matrix d_deim_basis;
   /// Precursor vector in previous time step
   SP_vector d_P0;
   /// Flux vector in previous time step
@@ -127,6 +177,20 @@ private:
   SP_vector d_phi_r;
   ///
   SP_vector d_b;
+  /// reduced DEIM mats
+  vec_matrix M_L;
+  /// reduced deim basis
+  SP_matrix Ur_deim;
+  ///
+  SP_vector d_x_deim;
+  ///
+  SP_vector d_b_deim;
+  /// DEIM interpolation indices
+  int* l;
+  ///
+  SP_matrix d_L_deim;
+  ///
+  bool deim_flag;
 
   /// Number of cells
   int d_num_cells;
@@ -140,6 +204,8 @@ private:
   int d_rc;
   /// Linear solver
   SP_solver d_solver;
+  /// linear solver DEIM
+  SP_solver d_solver_deim;
   /// Compute the initial precursors concentration
   void initialize_precursors();
   /// Project the initial flux and precursors on space of the reduced basis
@@ -149,7 +215,15 @@ private:
   /// Update the operator 
   void Refersh_Operator();
   /// Reconstruct the full order solution
-  void reconstruct();
+  void reconstruct(int i);
+
+
+  SP_multiphysics d_multiphysics;
+  multiphysics_pointer_rom d_update_multiphysics_rhs_rom;
+  void* d_multiphysics_data;
+  vec_multiphysics d_vec_multiphysics;
+  SP_multiphysics d_multiphysics_0;
+
 };
 
 #endif /* SOLVERS_ROM_TRANSIENTSOLVER_HH_ */

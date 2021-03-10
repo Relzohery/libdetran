@@ -44,7 +44,7 @@ void ROMSolver<D>::Set_FullOperators()
 {
   if (d_operator == "diffusion")
   {
-    SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0));
+    SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0, false));
     SP_gainoperator B (new DiffusionGainOperator(d_input, d_mat, d_mesh, false));
 
     d_A = A;
