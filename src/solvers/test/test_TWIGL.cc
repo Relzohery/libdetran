@@ -8,9 +8,10 @@
 //---------------------------------------------------------------------------//
 
 // LIST OF TEST FUNCTIONS
-#define TEST_LIST               \
+#define TEST_LIST      \
         FUNC(test_TWIGL)\
-		FUNC(test_TWIGL_ROM)
+		FUNC(test_TWIGL_ROM)\
+		FUNC(test_TWIGL_DEIM)
 
 #include "TestDriver.hh"
 #include "TimeStepper.hh"
@@ -436,20 +437,19 @@ int test_TWIGL(int argc, char *argv[])
 
   time(&end);
   time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+  printf("%1.14f", elapsed);
 
   return 0;
+
 
 }
 
 //---------------------------------------------------------------------------//
 int test_TWIGL_ROM(int argc, char *argv[])
 {
- ProfilerStart("test_TWIGL_rom.prof");
 
- time_t begin, end;
- time(&begin);
  InputDB::SP_input inp =get_input();
-
  bool transport = false;
  if (inp->get<std::string>("equation") != "diffusion") transport = true;
  TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
@@ -504,15 +504,101 @@ int test_TWIGL_ROM(int argc, char *argv[])
 
 
   ic->scale(1.0/F);
-  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
-  R.Solve(ic);
+   ProfilerStart("test_TWIGL_rom.prof");
+   time_t begin, end;
+   time(&begin);
+   TransientSolver R(inp, mesh, mat, basis_f, basis_p, basis_p, false);
+   R.Solve(ic);
 
-  SP_matrix flux;
   ProfilerStop();
 
   time(&end);
   time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+  printf("%1.14f", elapsed);
 
+ return 0;
+}
+
+//----------------------------------------------------------------------------//
+//---------------------------------------------------------------------------//
+int test_TWIGL_DEIM(int argc, char *argv[])
+{
+
+ InputDB::SP_input inp =get_input();
+
+ bool transport = false;
+ if (inp->get<std::string>("equation") != "diffusion") transport = true;
+ TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
+ //-------------------------------------------------------------------------//
+ // MESH
+ //-------------------------------------------------------------------------//
+
+ TS_2D::SP_mesh mesh = get_mesh(3);
+
+ const char* flux_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_flux_basis_r=15";
+ const char* precursors_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_precursors_basis_r=15";
+
+ const char* deim_basis = "/home/rabab/opt/detran/source/src/solvers/test/deim_basis";
+
+
+  int r = 15;
+  int n = mesh->number_cells();
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, r*2);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n, 15);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+  SP_matrix basis_deim;
+  basis_deim = new callow::MatrixDense(9660, 3);
+  ROMBasis::GetBasis(deim_basis, basis_deim);
+
+/*
+  //-------------------------- steady state ROM -----------------//
+  ROMSolver<_2D> ROM(inp, mesh, mat);
+  SP_vector  ROM_flux;
+  ROM_flux = new callow::Vector(2*n, 0.0);
+  ROM.Solve(basis_f, ROM_flux);
+  double keff_rom = ROM.keff();
+
+*/
+  //get initial state
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+
+  // Normalize state.
+  double F = 0;
+
+  vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += (ic->phi(0)[i]) * mat->sigma_f(m, 0)+
+         (ic->phi(1)[i]) * mat->sigma_f(m, 1);
+  }
+
+
+  ic->scale(1.0/F);
+
+  ProfilerStart("test_TWIGL_deim.prof");
+  time_t begin, end;
+  time(&begin);
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p,  basis_deim, true);
+  R.Solve(ic);
+  ProfilerStop();
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+ //printf("%1.14f", elapsed);
 
  return 0;
 }
