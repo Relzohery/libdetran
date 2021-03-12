@@ -143,65 +143,75 @@ Mesh2D::SP_mesh get_mesh(Mesh2D::size_t fmm = 1)
 InputDB::SP_input get_input()
 
 {     typedef TimeStepper<_2D> TS_2D;
+      typedef std::string str;
 	  //-------------------------------------------------------------------------//
 	  // INPUT
 	  //-------------------------------------------------------------------------//
 
-	  InputDB::SP_input inp(new InputDB("LRA benchmark"));
-	  inp->put<int>("dimension",                2);
-	  inp->put<int>("number_groups",            2);
-	  inp->put<std::string>("equation",         "diffusion");
-	  inp->put<std::string>("bc_west",          "reflect");
-	  inp->put<std::string>("bc_east",          "vacuum");
-	  inp->put<std::string>("bc_south",         "reflect");
-	  inp->put<std::string>("bc_north",         "vacuum");
-	  inp->put<int>("bc_zero_flux",             0);
-	  inp->put<double>("ts_final_time",         3.00);
-	  inp->put<double>("ts_step_size",          0.01);
-	  inp->put<int>("ts_max_steps",             10000000);
-	  inp->put<int>("ts_scheme",                TS_2D::BDF2);
-	  inp->put<int>("ts_output",                0);
-	  inp->put<int>("ts_monitor_level",         1);
-	  inp->put<int>("ts_no_extrapolation",      0);
-	  inp->put<int>("ts_max_iters",             1000);
-	  inp->put<double>("ts_tolerance",          1.0e-8);
-	  inp->put<string>("eigen_solver",          "arnoldi");
-	  inp->put<int>("quad_number_polar_octant",      3);
-	  inp->put<int>("quad_number_azimuth_octant",    3);
 
-	  //inp->put<string>("outer_solver",          "GMRES");
-	  //inp->put<int>("outer_krylov_group_cutoff",      1);
-
-	  inp->put<string>("inner_solver",          "SI");
-	  inp->put<double>("outer_tolerance",       1e-14);
-	  inp->put<double>("inner_tolerance",       1e-14);
-	  inp->put<int>("inner_max_iters",          1e5);
-
-	  inp->put<int>("inner_print_level",        0);
-	  inp->put<int>("outer_print_level",        0);
-	  inp->put<int>("quad_number_azimuth_octant",   1);
-	  inp->put<int>("quad_number_polar_octant",     1);
-	  // inner gmres parameters
-	  InputDB::SP_input db(new InputDB("inner_solver_db"));
-	  //db->put<double>("linear_solver_atol",                 1e-12);
-	  db->put<double>("linear_solver_rtol",                 1e-9);
-	  db->put<string>("linear_solver_type",                 "petsc");
-	  db->put<string>("pc_type",                            "petsc_pc");
-	  db->put<string>("petsc_pc_type",                      "lu");
-	  db->put<int>("linear_solver_maxit",                   2000);
-	  db->put<int>("linear_solver_gmres_restart",           30);
-	  db->put<int>("linear_solver_monitor_level",           0);
-	  db->put<string>("eigen_solver_type",                  "slepc");
-	  db->put<double>("eigen_solver_tol",                   1e-9);
-	  inp->put<InputDB::SP_input>("inner_solver_db",        db);
-	  inp->put<InputDB::SP_input>("outer_solver_db",        db);
-	  inp->put<InputDB::SP_input>("eigen_solver_db",        db);
-	  inp->put<int>("compute_boundary_flux",                1);
-	  if (inp->get<std::string>("equation") != "diffusion")
-	  {
-	    inp->put<int>("ts_discrete",              0);
-	    inp->put<int>("store_angular_flux",       1);
-	  }
+InputDB::SP_input inp(new InputDB("LRA benchmark"));
+  inp->put<int>("number_groups",                  2);
+  inp->put<int>("dimension",                      2);
+  inp->put<str>("equation",                       "diffusion");
+  inp->put<str>("bc_west",                        "reflect");
+  inp->put<str>("bc_east",                        "vacuum");
+  inp->put<str>("bc_south",                       "reflect");
+  inp->put<str>("bc_north",                       "vacuum");
+  inp->put<int>("bc_zero_flux",                   0);
+  inp->put<int>("quad_number_polar_octant",       3);
+  inp->put<int>("quad_number_azimuth_octant",     3);
+  inp->put<str>("eigen_solver",                   "arnoldi");
+  inp->put<double>("eigen_tolerance",                1e-12);
+  inp->put<int>("eigen_max_iters",                1000);
+  inp->put<str>("outer_solver",                   "GMRES");
+  inp->put<double>("outer_tolerance",                1e-12);
+  inp->put<int>("outer_max_iters",                1000);
+  inp->put<int>("outer_print_level",              0);
+  inp->put<int>("outer_krylov_group_cutoff",      0);
+  inp->put<str>("outer_pc_type",                  "mgdsa");
+  inp->put<str>("inner_solver",                   "GMRES");
+  inp->put<double>("inner_tolerance",                1e-12);
+  inp->put<int>("inner_max_iters",                1000);
+  inp->put<int>("inner_print_level",              0);
+  inp->put<str>("inner_pc_type",                  "DSA");
+  // gmres parameters
+  InputDB::SP_input db(new InputDB("callow_db"));
+  // db->put<double>("linear_solver_atol",              0.0);
+  db->put<double>("linear_solver_rtol",              1e-12);
+  db->put<str>("linear_solver_type",              "gmres");
+  db->put<int>("linear_solver_maxit",             1000);
+  db->put<int>("linear_solver_gmres_restart",     30);
+  db->put<int>("linear_solver_monitor_level",     0);
+  db->put<str>("pc_type",                         "jacobi");
+  db->put<str>("petsc_pc_type",                   "lu");
+  db->put<int>("petsc_pc_factor_levels",          3);
+  db->put<str>("eigen_solver_type",               "power");
+  db->put<int>("eigen_solver_maxit",              1000);
+  db->put<int>("eigen_solver_monitor_level",      1);
+  db->put<double>("eigen_solver_tol",                1.0e-12);
+  inp->put<InputDB::SP_input>("inner_solver_db", db);
+  inp->put<InputDB::SP_input>("inner_pc_db", db);
+  inp->put<InputDB::SP_input>("outer_solver_db", db);
+  inp->put<InputDB::SP_input>("eigen_solver_db", db);
+  inp->put<int>("ts_max_steps",                   10000);
+  inp->put<int>("ts_scheme",                      TS_2D::BDF2);
+  inp->put<int>("ts_output",                      0);
+  inp->put<double>("ts_step_size",                   0.01);
+  inp->put<double>("ts_final_time",                  3.0);
+  //inp->put<int>("ts_no_extrapolation",            1);
+  inp->put<int>("ts_max_iters",                   10);
+  inp->put<double>("ts_tolerance",                   1.0e-8);
+  #
+  InputDB::SP_input preconditioner_db(new InputDB("preconditioner_db"));
+  preconditioner_db->put<double>("linear_solver_atol",              0.0);
+  preconditioner_db->put<double>("linear_solver_rtol",              0.1);
+  preconditioner_db->put<str>("linear_solver_type",              "gmres");
+  preconditioner_db->put<int>("linear_solver_maxit",             5000);
+  preconditioner_db->put<int>("linear_solver_gmres_restart",     30);
+  preconditioner_db->put<int>("linear_solver_monitor_level",     0);
+  preconditioner_db->put<str>("pc_type",                         "ilu0");
+  preconditioner_db->put<str>("petsc_pc_type",                   "ilu");
+  preconditioner_db->put<int>("petsc_pc_factor_levels",          2);
 
   return inp;
 
