@@ -18,7 +18,6 @@
 #include "solvers/rom/DEIM.hh"
 #include "utilities/MathUtilities.hh"
 #include "solvers/EigenvalueManager.hh"
-#include "solvers/rom/offline_stage.hh"
 #include "solvers/rom/ParametricRom.hh"
 #include "projection_fixture.hh"
 #include "solvers/mg/DiffusionLossOperator.hh"
