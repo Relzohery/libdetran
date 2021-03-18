@@ -13,6 +13,8 @@
 #include "kinetics/SyntheticDiscreteSource.hh"
 #include "kinetics/SyntheticMomentSource.hh"
 #include "utilities/MathUtilities.hh"
+#include "DiffusionLossOperator.hh"
+
 #include <cmath>
 
 namespace detran
@@ -173,6 +175,14 @@ TimeStepper<D>::TimeStepper(SP_input       input,
     if (d_do_output) d_silooutput = new detran_ioutils::SiloOutput(d_mesh);
   }
 
+  // added by Rabab to train/test the rom
+  flux_mat =  new callow::MatrixDense(d_material->number_groups()*d_mesh->number_cells(), d_number_steps+1);
+  precursors_mat = new callow::MatrixDense(d_material->number_precursor_groups()*d_mesh->number_cells(), d_number_steps+1);
+  power_mat = new callow::MatrixDense(d_mesh->number_cells(), d_number_steps+1);
+  power = new callow::Vector(d_number_steps+1, 0.0);
+
+
+
 }
 
 //---------------------------------------------------------------------------//
@@ -192,6 +202,17 @@ void TimeStepper<D>::add_source(SP_tdsource source)
 template <class D>
 void TimeStepper<D>::solve(SP_state initial_state)
 {
+   // added by RABAB
+   //typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
+//   SP_lossoperator d_M;
+//   d_M = new DiffusionLossOperator(d_input, d_material, d_mesh,
+//		   false, 0.0, false, 1.0);
+   //double* d_nnzeros = d_M->values();
+   //std::cout << d_M->number_nonzeros() << "\n";
+   //LossMatrix_snaps = new callow::MatrixDense(d_M->number_nonzeros(), d_number_steps+1);
+
+   /////
+
   // Preconditions
   Require(initial_state);
 
@@ -200,13 +221,42 @@ void TimeStepper<D>::solve(SP_state initial_state)
   // Update the material, sources, and solver
   d_material->update(0.0, 0, 1, false);
   d_state = initial_state;
+
   *d_solver->state() = *d_state;
 
   initialize_precursors();
+
+  int cells = d_mesh->number_cells();
+
+    for (int g=0; g< d_material->number_groups(); g++)
+    {
+     for (int cell=0; cell< d_mesh->number_cells(); cell++)
+     {
+       (*flux_mat)(cell + g*cells, 0) = d_state->phi(g)[cell];
+
+       vec_int matmap = d_mesh->mesh_map("MATERIAL");
+       int m = matmap[cell];
+       (*power_mat)(cell, 0) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
+       (*power)[0] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
+     }
+    }
+
+
+   for (int g=0; g< d_material->number_precursor_groups(); g++)
+   {
+     for (int cell=0; cell< d_mesh->number_cells(); cell++)
+     {
+       (*precursors_mat)(cell + g*cells, 0) = d_precursor->C(g)[cell];
+     }
+   }
+
+
+
+
+
   *d_states[0] = *d_state;
   if (d_precursors.size()) *d_precursors[0] = *d_precursor;
   if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
-
 
   // Output the initial state
   if (d_do_output) d_silooutput->write_time_flux(0, d_state, d_discrete);
@@ -216,6 +266,7 @@ void TimeStepper<D>::solve(SP_state initial_state)
 
   // Call the monitor, if present.  [data, this, step, time, dt, order, conv]
   if (d_monitor_level) d_monitor(d_monitor_data, this, 0, 0.0, d_dt, 1, true);
+
 
   // Perform time steps
   double  t = 0.0;
@@ -227,7 +278,6 @@ void TimeStepper<D>::solve(SP_state initial_state)
     // Determine the order.
     size_t order = d_order;
     if (i < d_order) order = i;
-
     // Determine extrapolation flag.  By default, we extrapolate
     // if doing the first step of a higher order BDF method.  The
     // user can explicitly turn extrapolation off.
@@ -247,6 +297,12 @@ void TimeStepper<D>::solve(SP_state initial_state)
       // Perform the time step
       step(t, dt, order, flag);
 
+      // added by RABAB
+	  //d_M = new DiffusionLossOperator(d_input, d_material, d_mesh,
+		//	  false, 0.0, false, 1.0);
+	 // double* d_nnzeros = d_M->values();
+	 // LossMatrix_snaps->insert_col(i-1, d_nnzeros);
+      ////
       bool converged = check_convergence();
       if (iteration == d_maximum_iterations) converged = true;
 
@@ -267,9 +323,37 @@ void TimeStepper<D>::solve(SP_state initial_state)
     // Output the initial state
     if (d_do_output) d_silooutput->write_time_flux(i+1, d_state, true);
 
+    // added by Rabab to train/test the rom
+
+        vec_int matmap = d_mesh->mesh_map("MATERIAL");
+
+        for (int g=0; g< d_material->number_groups(); g++)
+        {
+         for (int cell=0; cell< d_mesh->number_cells(); cell++)
+         {
+    	 int m = matmap[cell];
+          (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
+          (*power_mat)(cell, i) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
+          (*power)[i] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
+         }
+        }
+
+
+        for (int g=0; g< d_material->number_precursor_groups(); g++)
+    	{
+    	 for (int cell=0; cell< d_mesh->number_cells(); cell++)
+    	 {
+    	  (*precursors_mat)(cell + g*cells, i) = d_precursor->C(g)[cell];
+        }
+       }
+
+        //LossMatrix_snaps->print_matlab("lossmatrix_snapshots.txt");
+
   } // end time steps
 
+
 }
+
 
 //---------------------------------------------------------------------------//
 template <class D>
@@ -283,12 +367,12 @@ void TimeStepper<D>::step(const double t,
   // *is* the half step.
   double t_eval = t;
   if (flag) t_eval -= dt;
-
+  std::cout << "t_eval= "<<  t_eval << "\n";
   // Update the material, sources, and solver
+
   d_material->update(t_eval, dt, order, true);
   update_sources(t_eval, dt, order);
   d_solver->update();
-
   // Save old state
   *d_state_0 = *d_state;
   if (d_multiply) *d_precursor_0 = *d_precursor;
@@ -328,7 +412,9 @@ void TimeStepper<D>::initialize_precursors()
    *  fission source
    */
 
+  std::cout << "updating source ***************\n";
   d_fissionsource->update();
+
   const State::moments_type &fd = d_fissionsource->density();
   const vec_int &mt = d_mesh->mesh_map("MATERIAL");
 
@@ -339,7 +425,8 @@ void TimeStepper<D>::initialize_precursors()
     {
       d_precursor->C(i)[cell] =
         inv_lambda * d_material->beta(mt[cell], i) * fd[cell];
-      //printf("%16.9f %16.9f %16.9f %16.9f \n", fd[cell], inv_lambda, d_material->beta(mt[cell], i), d_precursor->C(i)[cell]);
+
+      printf("%16.9f %16.9f %16.9f %16.9f %16.9f \n", fd[cell], inv_lambda, d_material->beta(mt[cell], i), d_precursor->C(i)[cell], d_fissionsource->density()[cell]);
     }
   }
 
@@ -405,21 +492,20 @@ void TimeStepper<D>::update_multiphysics(const double t,
 {
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
-  std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
+  //std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
   d_update_multiphysics_rhs(d_multiphysics_data, this, t, dt);
-  std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
+ // std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute
   //  y(n+1) = (1/a0) * ( dt*rhs + sum of bdf terms )
   for (size_t i = 0; i < d_multiphysics->number_variables(); ++i)
   {
-
     // Reference to P(n+1)
     MultiPhysics::vec_dbl &P   = d_multiphysics->variable(i);
 
     //std::cout << " Pold[0]=" << P[0] << std::endl;
-    printf("delP = %18.12e \n", P[0]);
-    printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
+    //printf("delP = %18.12e \n", P[0]);
+    //printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
 
     // Loop over all elements (usually spatial)
     for (int j = 0; j < P.size(); ++j)

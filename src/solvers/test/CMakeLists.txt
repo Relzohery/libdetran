@@ -101,6 +101,9 @@ ADD_TEST(test_MGCMFD             		test_MGCMFD 0)
 ADD_EXECUTABLE(test_TimeStepper          	test_TimeStepper.cc)
 TARGET_LINK_LIBRARIES(test_TimeStepper   	solvers)
 ADD_EXECUTABLE(test_TWIGL                   test_TWIGL.cc)
+ADD_TEST(TEST_TWIGL                         test_TWIGL 0) 
+ADD_TEST(TEST_TWIGL_ROM                     test_TWIGL 1)
+ADD_TEST(TEST_TWIGL_DEIM                    test_TWIGL 2) 
 TARGET_LINK_LIBRARIES(test_TWIGL            solvers)
 #ADD_TEST(test_MGCMFD             		test_MGCMFD 0)
 
@@ -124,3 +127,20 @@ TARGET_LINK_LIBRARIES(test_c5g7   	solvers)
 ADD_TEST(test_pin            	test_c5g7  0)
 ADD_TEST(test_assembly          test_c5g7  1)
 ADD_TEST(test_core              test_c5g7  2)
+
+ADD_EXECUTABLE(test_TransientROMSolver         	 test_TransientROMSolver.cc)
+TARGET_LINK_LIBRARIES(test_TransientROMSolver    	solvers)
+ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_rom   0)
+ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_fom   1)
+
+
+ADD_EXECUTABLE(test_DEIM        	 test_DEIM.cc)
+TARGET_LINK_LIBRARIES(test_DEIM     solvers)
+ADD_TEST(test_DEIM            test_DEIM 0)
+ADD_TEST(test_offline            test_offline 1)
+
+ADD_EXECUTABLE(test_LRA        	 test_LRA.cc)
+TARGET_LINK_LIBRARIES(test_LRA     solvers)
+ADD_TEST(test_LRA               test_LRA 0)
+ADD_TEST(test_LRA               test_LRA_ROM 1)
+

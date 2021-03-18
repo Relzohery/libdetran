@@ -22,8 +22,10 @@
 #include "utilities/Definitions.hh"
 #include "utilities/SP.hh"
 #include "transport/State.hh"
-#include <cstdio>
+#include "callow/matrix/MatrixDense.hh"
 
+#include <cstdio>
+#include "callow/matrix/MatrixDense.hh"
 namespace detran
 {
 
@@ -81,6 +83,8 @@ public:
   /// Pointer to callback function for updating physics
   typedef void (*multiphysics_pointer)
                (void*, TimeStepper<D>*, double, double);
+  typedef callow::MatrixDense::SP_matrix            SP_matrix;
+  typedef callow::Vector::SP_vector                 SP_vector;
   //-------------------------------------------------------------------------//
   // CONSTRUCTOR & DESTRUCTOR
   //-------------------------------------------------------------------------//
@@ -118,6 +122,11 @@ public:
   SP_multiphysics multiphysics() {return d_multiphysics;}
   SP_fissionsource fissionsource() {return d_fissionsource;}
   double residual_norm() {return d_residual_norm;}
+  SP_matrix flux_mat;
+  SP_matrix precursors_mat;
+  SP_matrix power_mat;
+  SP_matrix LossMatrix_snaps;
+  SP_vector power;
 
   /// Set a user-defined monitor function.
   void set_monitor(monitor_pointer monitor, void* monitor_data = NULL)

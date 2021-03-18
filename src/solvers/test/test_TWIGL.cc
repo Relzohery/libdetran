@@ -8,8 +8,10 @@
 //---------------------------------------------------------------------------//
 
 // LIST OF TEST FUNCTIONS
-#define TEST_LIST               \
-        FUNC(test_TWIGL)
+#define TEST_LIST      \
+        FUNC(test_TWIGL)\
+		FUNC(test_TWIGL_ROM)\
+		FUNC(test_TWIGL_DEIM)
 
 #include "TestDriver.hh"
 #include "TimeStepper.hh"
@@ -22,6 +24,13 @@
 #include "kinetics/LinearExternalSource.hh"
 #include "kinetics/LinearMaterial.hh"
 #include "solvers/EigenvalueManager.hh"
+#include "callow/matrix/MatrixDense.hh"
+#include "ROMBasis.hh"
+#include "TransientSolver.hh"
+#include "solvers/rom/ROMSolver.hh"
+#include <time.h>
+#include "/home/rabab/opt/gperftools/src/gperftools/profiler.h"
+
 
 
 using namespace detran_test;
@@ -33,6 +42,11 @@ using namespace detran_utilities;
 using namespace std;
 using std::cout;
 using std::endl;
+typedef callow::MatrixDense::SP_matrix        SP_matrix;
+typedef callow::Vector::SP_vector      SP_vector;
+
+typedef TimeStepper<_2D> TS_2D;
+
 
 int main(int argc, char *argv[])
 {
@@ -44,7 +58,6 @@ int main(int argc, char *argv[])
 //---------------------------------------------------------------------------//
 // TEST DEFINITIONS
 //---------------------------------------------------------------------------//
-
 void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
                   double dt, int it, bool conv)
 {
@@ -56,8 +69,7 @@ void test_monitor(void* data, TimeStepper<_2D>* ts, int step, double t,
     F += ts->state()->phi(0)[i] * ts->material()->sigma_f(m, 0) +
          ts->state()->phi(1)[i] * ts->material()->sigma_f(m, 1);
   }
-  //ts->state()->display();
-  printf(" %5i  %16.13f  %16.13f %5i \n", step, t, F, it);
+
 }
 
 //---------------------------------------------------------------------------//
@@ -70,6 +82,7 @@ public:
     , d_perturbation(perturbation)
     , d_transport(transport)
   {
+    update_material = false;
     update_impl();
   }
   // Update the materials.
@@ -137,10 +150,18 @@ public:
         double sa = 0.150;
         if (d_perturbation == 1) // RAMP
         {
-          if (t >= 0.1 && t < 0.3)
+          if (t >= 0.1 && t < 0.3+d_dt)
+          {
+            update_material = true;
             sa = 0.150 * (1.0 - 0.11667 * (t - 0.1));
-          else if (t >= 0.3)
-            sa = 0.150 * 0.97666;
+          }
+          
+          else if (t > 0.3+d_dt)
+          {
+           update_material = false;
+           sa = 0.150 * 0.976666;
+          }
+            
         }
         else if (d_perturbation == 2) // STEP
         {
@@ -266,19 +287,12 @@ Mesh2D::SP_mesh get_mesh(Mesh2D::size_t fmm = 1)
 }
 
 //---------------------------------------------------------------------------//
-int test_TWIGL(int argc, char *argv[])
+InputDB::SP_input get_input()
 {
-
-  typedef TimeStepper<_2D> TS_2D;
-
-  //-------------------------------------------------------------------------//
-  // INPUT
-  //-------------------------------------------------------------------------//
-
   InputDB::SP_input inp(new InputDB("TWIGL benchmark"));
   inp->put<int>("dimension",                      2);
   inp->put<int>("number_groups",                  2);
-  inp->put<std::string>("equation",               "dd");
+  inp->put<std::string>("equation",               "diffusion");
   inp->put<std::string>("bc_west",                "reflect");
   inp->put<std::string>("bc_east",                "vacuum");
   inp->put<std::string>("bc_south",               "reflect");
@@ -287,7 +301,7 @@ int test_TWIGL(int argc, char *argv[])
   inp->put<double>("ts_final_time",               0.6);
   inp->put<double>("ts_step_size",                0.001);
   inp->put<int>("ts_max_steps",                   1000);
-  inp->put<int>("ts_scheme",                      TS_2D::IMP);
+  //inp->put<int>("ts_scheme",                      TS_2D::IMP);
   inp->put<int>("ts_output",                      0);
   inp->put<int>("ts_monitor_level",               1);
   inp->put<int>("ts_no_extrapolation",            0);
@@ -295,7 +309,7 @@ int test_TWIGL(int argc, char *argv[])
   inp->put<int>("quad_number_polar_octant",       8);
   inp->put<int>("quad_number_azimuth_octant",     8);
 
-  inp->put<string>("outer_solver",          "GMRES");
+  inp->put<string>("outer_solver",          "GS");
   inp->put<int>("outer_krylov_group_cutoff",      0);
   //inp->put<int>("compute_boundary_flux",          1);
 
@@ -305,31 +319,44 @@ int test_TWIGL(int argc, char *argv[])
   inp->put<int>("inner_max_iters",          1e5);
 
   inp->put<int>("inner_print_level",        0);
-  inp->put<int>("outer_print_level",        1);
+  inp->put<int>("outer_print_level",        0);
   inp->put<int>("quad_number_azimuth_octant",   1);
   inp->put<int>("quad_number_polar_octant",     1);
 
   // inner gmres parameters
   InputDB::SP_input db(new InputDB("inner_solver_db"));
-  db->put<double>("linear_solver_atol",                 1e-12);
-  db->put<double>("linear_solver_rtol",                 1e-15);
+ // db->put<double>("linear_solver_atol",                 1e-13);
+ // db->put<double>("linear_solver_rtol",                 1e-13);
   db->put<string>("linear_solver_type",                 "petsc");
-  db->put<string>("pc_type",                            "petsc_pc");
+ db->put<string>("pc_type",                            "petsc_pc");
   db->put<string>("petsc_pc_type",                      "lu");
-  db->put<int>("linear_solver_maxit",                   2000);
+  db->put<int>("linear_solver_maxit",                   1000);
   db->put<int>("linear_solver_gmres_restart",           30);
   db->put<int>("linear_solver_monitor_level",           0);
   db->put<string>("eigen_solver_type",                  "slepc");
-  db->put<double>("eigen_solver_tol",                   1e-15);
+  //db->put<double>("eigen_solver_tol",                   1e-15);
   inp->put<InputDB::SP_input>("inner_solver_db",        db);
   inp->put<InputDB::SP_input>("outer_solver_db",        db);
   inp->put<InputDB::SP_input>("eigen_solver_db",        db);
+  inp->put<InputDB::SP_input>("rom_solver_db",        db);
   inp->put<int>("compute_boundary_flux",                1);
   if (inp->get<std::string>("equation") != "diffusion")
   {
-    inp->put<int>("ts_discrete",              1);
-    inp->put<int>("store_angular_flux",       1);
+	inp->put<int>("ts_discrete",              1);
+	inp->put<int>("store_angular_flux",       1);
   }
+
+
+  return inp;
+}
+
+
+//---------------------------------------------------------------------------//
+int test_TWIGL(int argc, char *argv[])
+{
+  time_t begin, end;
+  time(&begin);
+  InputDB::SP_input inp =get_input();
 
   //-------------------------------------------------------------------------//
   // MATERIAL
@@ -338,13 +365,15 @@ int test_TWIGL(int argc, char *argv[])
   // Create a TWIGL material with ramp reactivity
   bool transport = false;
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new TWIGLMaterial(2, transport));
+  TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
 
   //-------------------------------------------------------------------------//
   // MESH
   //-------------------------------------------------------------------------//
 
-  TS_2D::SP_mesh mesh = get_mesh(2);
+  TS_2D::SP_mesh mesh = get_mesh(3);
+
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -369,6 +398,7 @@ int test_TWIGL(int argc, char *argv[])
     F += ic->phi(0)[i] * mat->sigma_f(m, 0) +
          ic->phi(1)[i] * mat->sigma_f(m, 1);
   }
+
   ic->scale(1.0/F);
 
   //-------------------------------------------------------------------------//
@@ -377,20 +407,200 @@ int test_TWIGL(int argc, char *argv[])
 
 
   TS_2D stepper(inp, mat, mesh, true);
+
   stepper.set_monitor(test_monitor);
   stepper.solve(ic);
 
 
-  printf(" %20.16f %20.16f ", ic->phi(0)[0], ic->phi(0)[1]);
-  std::cout << std::endl;
+  //printf(" %20.16f %20.16f ", ic->phi(0)[0], ic->phi(0)[1]);
 
   State::SP_state final = stepper.state();
 
-  printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
+ // SP_matrix phi_mat;
+  SP_matrix phi_mat;
+  SP_matrix precursors_mat;
+  SP_matrix power_mat;
+  SP_vector power;
+
+  phi_mat = stepper.flux_mat;
+  precursors_mat = stepper.precursors_mat;
+  power_mat = stepper.power_mat;
+  power = stepper.power;
+
+  phi_mat->print_matlab("twigl_flux_fine.txt");
+  precursors_mat->print_matlab("twigl_precursors_fine.txt");
+  power_mat->print_matlab("twigl_spatail_power_fine.txt");
+  power->print_matlab("twigl_power_fine.txt");
+  
+  //printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
+
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+  printf("%1.14f", elapsed);
 
   return 0;
 
+
+}
+
+//---------------------------------------------------------------------------//
+int test_TWIGL_ROM(int argc, char *argv[])
+{
+
+ InputDB::SP_input inp =get_input();
+ bool transport = false;
+ if (inp->get<std::string>("equation") != "diffusion") transport = true;
+ TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
+ //-------------------------------------------------------------------------//
+ // MESH
+ //-------------------------------------------------------------------------//
+
+ TS_2D::SP_mesh mesh = get_mesh(3);
+
+ const char* flux_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_flux_basis_r=15";
+ const char* precursors_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_precursors_basis_r=15";
+
+  int r = 15;
+  int n = mesh->number_cells();
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, r*2);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n, 15);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+/*
+  //-------------------------- steady state ROM -----------------//
+  ROMSolver<_2D> ROM(inp, mesh, mat);
+  SP_vector  ROM_flux;
+  ROM_flux = new callow::Vector(2*n, 0.0);
+  ROM.Solve(basis_f, ROM_flux);
+  double keff_rom = ROM.keff();
+
+*/
+  //get initial state
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+
+  // Normalize state.
+  double F = 0;
+
+  vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += (ic->phi(0)[i]) * mat->sigma_f(m, 0)+
+         (ic->phi(1)[i]) * mat->sigma_f(m, 1);
+  }
+
+
+  ic->scale(1.0/F);
+   ProfilerStart("test_TWIGL_rom.prof");
+   time_t begin, end;
+   time(&begin);
+   TransientSolver R(inp, mesh, mat, basis_f, basis_p, basis_p, false);
+   R.Solve(ic);
+
+  ProfilerStop();
+
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+  printf("%1.14f", elapsed);
+
+ return 0;
+}
+
+//----------------------------------------------------------------------------//
+//---------------------------------------------------------------------------//
+int test_TWIGL_DEIM(int argc, char *argv[])
+{
+
+ InputDB::SP_input inp =get_input();
+
+ bool transport = false;
+ if (inp->get<std::string>("equation") != "diffusion") transport = true;
+ TS_2D::SP_material mat(new TWIGLMaterial(1, transport));
+
+ //-------------------------------------------------------------------------//
+ // MESH
+ //-------------------------------------------------------------------------//
+
+ TS_2D::SP_mesh mesh = get_mesh(3);
+
+ const char* flux_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_flux_basis_r=15";
+ const char* precursors_basis = "/home/rabab/opt/detran/source/src/solvers/test/rom_basis/twigl_ramp_precursors_basis_r=15";
+
+ const char* deim_basis = "/home/rabab/opt/detran/source/src/solvers/test/deim_basis";
+
+
+  int r = 15;
+  int n = mesh->number_cells();
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, r*2);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n, 15);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+  SP_matrix basis_deim;
+  basis_deim = new callow::MatrixDense(9660, 3);
+  ROMBasis::GetBasis(deim_basis, basis_deim);
+
+/*
+  //-------------------------- steady state ROM -----------------//
+  ROMSolver<_2D> ROM(inp, mesh, mat);
+  SP_vector  ROM_flux;
+  ROM_flux = new callow::Vector(2*n, 0.0);
+  ROM.Solve(basis_f, ROM_flux);
+  double keff_rom = ROM.keff();
+
+*/
+  //get initial state
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+
+  // Normalize state.
+  double F = 0;
+
+  vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += (ic->phi(0)[i]) * mat->sigma_f(m, 0)+
+         (ic->phi(1)[i]) * mat->sigma_f(m, 1);
+  }
+
+
+  ic->scale(1.0/F);
+
+  ProfilerStart("test_TWIGL_deim.prof");
+  time_t begin, end;
+  time(&begin);
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p,  basis_deim, true);
+  R.Solve(ic);
+  ProfilerStop();
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
+ //printf("%1.14f", elapsed);
+
+ return 0;
 }
 //---------------------------------------------------------------------------//
 //              end of test_TWIGL.cc

@@ -1,11 +1,14 @@
-/*
- * ROM_Manager.cc
- *
- *  Created on: Jul 8, 2020
- *      Author: rabab
+//----------------------------------*-C++-*-----------------------------------//
+/**
+ *  @file  ROMSolver.cc
+ *  @brief RoMSolver class definition.
+ *  @note  Copyright(C) 2020 Jeremy Roberts
  */
+//----------------------------------------------------------------------------//
+
 
 #include "ROMSolver.hh"
+
 
 template <class D>
 ROMSolver<D>::ROMSolver(SP_input inp, SP_mesh mesh, SP_material mat)
@@ -17,18 +20,21 @@ ROMSolver<D>::ROMSolver(SP_input inp, SP_mesh mesh, SP_material mat)
  Require(mat);
  Require(mesh);
 
- // not sure what input can tell that we want energyindependent operator,
- // so will let it the default until Roberts give his opinion
+ // set the operator type
  d_operator = "EnergyDependent";
-
- if (d_input->check("equation"))
+ if (d_input->check("operator"))
  {
-   if (d_input->get<std::string>("equation") == "diffusion")
-    d_operator = "diffusion";
+   if (d_input->get<std::string>("operator") == "diffusion")
+      d_operator = "diffusion";
+   else if (d_input->get<std::string>("operator") == "energy-independent")
+      d_operator = "EnergyIndependent";
+   else if (d_input->get<std::string>("operator") == "energy-dependent")
+      d_operator = "EnergyDependent";
+   else
+	  std::cout << "Bad choice.  Using default." << std::endl;
+  }
 
-    else if (d_input->get<std::string>("equation") == "dd")
-	  d_operator = "EnergyIndependent";
- }
+ std::cout << " operator is " << d_operator << std::endl;
 
  ROMSolver::Set_FullOperators();
 }
@@ -38,62 +44,42 @@ void ROMSolver<D>::Set_FullOperators()
 {
   if (d_operator == "diffusion")
   {
-    SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0));
-	SP_gainoperator B (new DiffusionGainOperator(d_input, d_mat, d_mesh, false));
+    SP_lossoperator A (new DiffusionLossOperator(d_input, d_mat, d_mesh, false, 0.0, false, 1.0, false));
+    SP_gainoperator B (new DiffusionGainOperator(d_input, d_mat, d_mesh, false));
 
-	d_A = A;
-	d_B = B;
-	d_A->compute_explicit("A_diffusion_Operator");
-	d_B->compute_explicit("B_diffusion_Operator");
-
+    d_A = A;
+    d_B = B;
   }
 
   else if (d_operator == "EnergyDependent")
   {
     d_input->put<std::string>("outer_solver", "GMRES");
-	d_input->put<int>("outer_krylov_group_cutoff", 0);
-	d_input->put<std::string>("eigen_solver", "GD");
-	SP_mg_solver mg_solver;
-	mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
-	mg_solver->setup();
-	mg_solver->set_solver();
-	d_B = new LHS_Operator_T(mg_solver);
-	d_B->compute_explicit("B_EnergyDependent_Operator");
+    d_input->put<int>("outer_krylov_group_cutoff", 0);
+    d_input->put<std::string>("eigen_solver", "GD");
+    SP_mg_solver mg_solver;
+    mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
+    mg_solver->setup();
+    mg_solver->set_solver();
+    d_B = new LHS_Operator_T(mg_solver);
 
-	typename RHS_Operator_T::SP_operator A;
-	MGSolverGMRES<D>* mgs =
-	dynamic_cast<MGSolverGMRES<D>*>(&(*mg_solver->solver()));
-	Insist(mgs, "EigenGD requires GMRES for the MG problem to get the operator.");
+    typename RHS_Operator_T::SP_operator A;
+    MGSolverGMRES<D>* mgs =
+    dynamic_cast<MGSolverGMRES<D>*>(&(*mg_solver->solver()));
+    Insist(mgs, "EigenGD requires GMRES for the MG problem to get the operator.");
 
-	// Transport operator
-	A = mgs->get_operator();
-	A->sweeper()->set_update_boundary(false);
-	d_A = A;
-	//A->compute_explicit("A_EnergyDependent_Operator");
-	std::cout << d_A->number_columns() << "\n";
-	std::cout << d_A->number_rows() << "\n";
+    // Transport operator
+    A = mgs->get_operator();
+    A->sweeper()->set_update_boundary(false);
+    d_A = A;
   }
 
   else if (d_operator == "EnergyIndependent")
   {
-	  std::cout << "here .......................\n";
-   SP_mg_solver mg_solver;
-   std::cout << " 1 ................" << '\n';
-
-   mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
-   std::cout << " 2 ................" << '\n';
-   mg_solver->setup();
-   std::cout << " 3 ................" << '\n';
-   mg_solver->set_solver();
-   std::cout << " 4 ................" << '\n';
-   d_A = new Operator_T(mg_solver);
-   std::cout << " 5................" << '\n';
-
-  // d_A->compute_explicit("energyIndependent_operator");
-   std::cout << " 6................" << '\n';
-
-
-   std::cout << " operator done ................" << '\n';
+    SP_mg_solver mg_solver;
+    mg_solver = new FixedSourceManager<D>(d_input, d_mat, d_mesh, false, true);
+    mg_solver->setup();
+    mg_solver->set_solver();
+    d_A = new Operator_T(mg_solver);
   }
 }
 
@@ -107,21 +93,18 @@ void ROMSolver<D>::Solve(SP_matrix d_U, SP_vector sol)
   int d_r = d_U->number_columns();
 
   SP_matrix Ar;
-  Ar = new callow::MatrixDense(d_r, d_r);
-  std::cout << " started projection ..............     " << "\n";
+  Ar = new MatrixDense(d_r, d_r);
   P.Project(Ar);
-  std::cout << " projection finished  ..............     " << "\n";
 
   SP_eigensolver eigensolver;
   eigensolver = Creator_T::Create(d_input);
-  std::cout << " solving the eigenvalue ..............     " << "\n";
 
 
   if (d_operator == "diffusion" || d_operator == "EnergyDependent")
   {
    P.SetOperators(d_B, d_U);
    SP_matrix Br;
-   Br = new callow::MatrixDense(d_r, d_r);
+   Br = new MatrixDense(d_r, d_r);
    P.Project(Br);
    eigensolver->set_operators(Br, Ar);
   }
@@ -130,8 +113,8 @@ void ROMSolver<D>::Solve(SP_matrix d_U, SP_vector sol)
 
   SP_vector x_rom;
   SP_vector x;
-  x_rom = new callow::Vector(d_r, 0.0);
-  x = new callow::Vector(d_r, 1.0);
+  x_rom = new Vector(d_r, 0.0);
+  x = new Vector(d_r, 1.0);
   eigensolver->solve(x_rom, x);
 
   d_keff =  eigensolver->eigenvalue();
@@ -144,13 +127,13 @@ void ROMSolver<D>::Solve(SP_matrix d_U, SP_vector sol)
   // correct the direction of the vector if negative
   for (int i=0; i<d_n; i++)
   {
-    if (signbit((*sol)[i]))
-	{
-      (*sol)[i] *= -1;
-	}
+    if (((*sol)[i]) < 0)
+    {
+     (*sol)[i] *= -1;
+    }
   }
 
-  }
+}
 
 
 //----------------------------------------------------------------------------//

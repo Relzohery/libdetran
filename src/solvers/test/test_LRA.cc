@@ -9,7 +9,8 @@
 
 // LIST OF TEST FUNCTIONS
 #define TEST_LIST               \
-        FUNC(test_LRA)
+        FUNC(test_LRA)        \
+		FUNC(test_LRA_ROM)
 
 #include "TestDriver.hh"
 #include "TimeStepper.hh"
@@ -23,11 +24,14 @@
 #include "kinetics/LinearMaterial.hh"
 #include "solvers/EigenvalueManager.hh"
 #include "solvers/time/LRA.hh"
+#include "TransientSolver.hh"
+#include "ROMBasis.hh"
+
 //
-#include "angle/test/quadrature_fixture.hh"
+//#include "angle/test/quadrature_fixture.hh"
 #include "geometry/test/mesh_fixture.hh"
 #include "material/test/material_fixture.hh"
-#include "external_source/test/external_source_fixture.hh"
+//#include "external_source/test/external_source_fixture.hh"
 
 using namespace detran_test;
 using namespace detran;
@@ -134,77 +138,116 @@ Mesh2D::SP_mesh get_mesh(Mesh2D::size_t fmm = 1)
   return mesh;
 }
 
+
+//---------------------------------------------------------------------------//
+InputDB::SP_input get_input()
+
+{     typedef TimeStepper<_2D> TS_2D;
+      typedef std::string str;
+	  //-------------------------------------------------------------------------//
+	  // INPUT
+	  //-------------------------------------------------------------------------//
+
+
+InputDB::SP_input inp(new InputDB("LRA benchmark"));
+  inp->put<int>("number_groups",                  2);
+  inp->put<int>("dimension",                      2);
+  inp->put<str>("equation",                       "diffusion");
+  inp->put<str>("bc_west",                        "reflect");
+  inp->put<str>("bc_east",                        "vacuum");
+  inp->put<str>("bc_south",                       "reflect");
+  inp->put<str>("bc_north",                       "vacuum");
+  inp->put<int>("bc_zero_flux",                   0);
+  inp->put<int>("quad_number_polar_octant",       3);
+  inp->put<int>("quad_number_azimuth_octant",     3);
+  inp->put<str>("eigen_solver",                   "arnoldi");
+  inp->put<double>("eigen_tolerance",                1e-12);
+  inp->put<int>("eigen_max_iters",                1000);
+  inp->put<str>("outer_solver",                   "GMRES");
+  inp->put<double>("outer_tolerance",                1e-12);
+  inp->put<int>("outer_max_iters",                1000);
+  inp->put<int>("outer_print_level",              0);
+  inp->put<int>("outer_krylov_group_cutoff",      0);
+  inp->put<str>("outer_pc_type",                  "mgdsa");
+  inp->put<str>("inner_solver",                   "GMRES");
+  inp->put<double>("inner_tolerance",                1e-12);
+  inp->put<int>("inner_max_iters",                1000);
+  inp->put<int>("inner_print_level",              0);
+  inp->put<str>("inner_pc_type",                  "DSA");
+  // gmres parameters
+  InputDB::SP_input db(new InputDB("callow_db"));
+   db->put<double>("linear_solver_atol",              0.0);
+  db->put<double>("linear_solver_rtol",              1e-16);
+   db->put<str>("linear_solver_type",              "gmres");
+  db->put<string>("petsc_pc_type",                    "lu");
+  db->put<int>("linear_solver_maxit",             1000);
+  db->put<int>("linear_solver_gmres_restart",     30);
+  db->put<int>("linear_solver_monitor_level",     0);
+  db->put<str>("pc_type",                         "petsc_pc");
+  //db->put<str>("petsc_pc_type",                   "lu");
+  db->put<int>("petsc_pc_factor_levels",          3);
+  db->put<str>("eigen_solver_type",               "power");
+  db->put<int>("eigen_solver_maxit",              1000);
+  db->put<int>("eigen_solver_monitor_level",      1);
+  db->put<double>("eigen_solver_tol",                1.0e-12);
+  inp->put<InputDB::SP_input>("inner_solver_db", db);
+  inp->put<InputDB::SP_input>("inner_pc_db", db);
+  inp->put<InputDB::SP_input>("outer_solver_db", db);
+  inp->put<InputDB::SP_input>("eigen_solver_db", db);
+  inp->put<int>("ts_max_steps",                   10000);
+  //inp->put<int>("ts_scheme",                      TS_2D::BDF2);
+  inp->put<int>("ts_output",                      0);
+  inp->put<double>("ts_step_size",                   0.001);
+  inp->put<double>("ts_final_time",                  3.0);
+  //inp->put<int>("ts_no_extrapolation",            1);
+  inp->put<int>("ts_max_iters",                   10);
+  inp->put<double>("ts_tolerance",                   1.0e-8);
+  #
+  InputDB::SP_input preconditioner_db(new InputDB("preconditioner_db"));
+  preconditioner_db->put<double>("linear_solver_atol",              0.0);
+  preconditioner_db->put<double>("linear_solver_rtol",              1e-12);
+  preconditioner_db->put<str>("linear_solver_type",              "gmres");
+  preconditioner_db->put<int>("linear_solver_maxit",             5000);
+  preconditioner_db->put<int>("linear_solver_gmres_restart",     30);
+  preconditioner_db->put<int>("linear_solver_monitor_level",     0);
+  preconditioner_db->put<str>("pc_type",                         "petsc_pc");
+  preconditioner_db->put<str>("petsc_pc_type",                   "ilu");
+  preconditioner_db->put<int>("petsc_pc_factor_levels",          2);
+
+
+  InputDB::SP_input rom_db(new InputDB("inner_solver_db"));
+  rom_db->put<string>("linear_solver_type",                 "petsc");
+  rom_db->put<string>("pc_type",                            "petsc_pc");
+  rom_db->put<double>("linear_solver_rtol",              1e-16);
+  rom_db->put<string>("petsc_pc_type",                      "lu");
+  rom_db->put<int>("linear_solver_maxit",                   1000);
+  rom_db->put<int>("linear_solver_gmres_restart",           30);
+  rom_db->put<int>("linear_solver_monitor_level",           0);
+  rom_db->put<string>("eigen_solver_type",                  "slepc");
+  rom_db->put<int>("petsc_pc_factor_levels",          3);
+  db->put<double>("eigen_solver_tol",                   1e-15);
+  inp->put<InputDB::SP_input>("inner_solver_db",        db);
+  inp->put<InputDB::SP_input>("outer_solver_db",        db);
+  inp->put<InputDB::SP_input>("eigen_solver_db",        db);
+  inp->put<InputDB::SP_input>("rom_solver_db",          db);
+
+  return inp;
+
+}
+
 //---------------------------------------------------------------------------//
 int test_LRA(int argc, char *argv[])
 {
 
   typedef TimeStepper<_2D> TS_2D;
-
-  //-------------------------------------------------------------------------//
-  // INPUT
-  //-------------------------------------------------------------------------//
-
-  InputDB::SP_input inp(new InputDB("LRA benchmark"));
-  inp->put<int>("dimension",                2);
-  inp->put<int>("number_groups",            2);
-  inp->put<std::string>("equation",         "diffusion");
-  inp->put<std::string>("bc_west",          "reflect");
-  inp->put<std::string>("bc_east",          "vacuum");
-  inp->put<std::string>("bc_south",         "reflect");
-  inp->put<std::string>("bc_north",         "vacuum");
-  inp->put<int>("bc_zero_flux",             1);
-  inp->put<double>("ts_final_time",         3.00);
-  inp->put<double>("ts_step_size",          0.001);
-  inp->put<int>("ts_max_steps",             10000000);
-  inp->put<int>("ts_scheme",                TS_2D::BDF3);
-  inp->put<int>("ts_output",                0);
-  inp->put<int>("ts_monitor_level",         1);
-  inp->put<int>("ts_no_extrapolation",      0);
-  inp->put<int>("ts_max_iters",             1000);
-  inp->put<double>("ts_tolerance",          1.0e-8);
-  inp->put<string>("eigen_solver",          "arnoldi");
-  inp->put<int>("quad_number_polar_octant",      3);
-  inp->put<int>("quad_number_azimuth_octant",    3);
-
-  //inp->put<string>("outer_solver",          "GMRES");
-  //inp->put<int>("outer_krylov_group_cutoff",      1);
-
-  inp->put<string>("inner_solver",          "SI");
-  inp->put<double>("outer_tolerance",       1e-14);
-  inp->put<double>("inner_tolerance",       1e-14);
-  inp->put<int>("inner_max_iters",          1e5);
-
-  inp->put<int>("inner_print_level",        0);
-  inp->put<int>("outer_print_level",        0);
-  inp->put<int>("quad_number_azimuth_octant",   1);
-  inp->put<int>("quad_number_polar_octant",     1);
-  // inner gmres parameters
-  InputDB::SP_input db(new InputDB("inner_solver_db"));
-  //db->put<double>("linear_solver_atol",                 1e-12);
-  db->put<double>("linear_solver_rtol",                 1e-9);
-  db->put<string>("linear_solver_type",                 "petsc");
-  db->put<string>("pc_type",                            "petsc_pc");
-  db->put<string>("petsc_pc_type",                      "lu");
-  db->put<int>("linear_solver_maxit",                   2000);
-  db->put<int>("linear_solver_gmres_restart",           30);
-  db->put<int>("linear_solver_monitor_level",           0);
-  db->put<string>("eigen_solver_type",                  "slepc");
-  db->put<double>("eigen_solver_tol",                   1e-9);
-  inp->put<InputDB::SP_input>("inner_solver_db",        db);
-  inp->put<InputDB::SP_input>("outer_solver_db",        db);
-  inp->put<InputDB::SP_input>("eigen_solver_db",        db);
-  inp->put<int>("compute_boundary_flux",                1);
-  if (inp->get<std::string>("equation") != "diffusion")
-  {
-    inp->put<int>("ts_discrete",              0);
-    inp->put<int>("store_angular_flux",       1);
-  }
-
+  typedef callow::MatrixDense::SP_matrix            SP_matrix;
+  typedef callow::Vector::SP_vector                 SP_vector;
+   InputDB::SP_input inp = get_input();
   //-------------------------------------------------------------------------//
   // MESH
   //-------------------------------------------------------------------------//
 
-  TS_2D::SP_mesh mesh = get_mesh(10);
+  TS_2D::SP_mesh mesh = get_mesh(2);
 
   //-------------------------------------------------------------------------//
   // MATERIAL
@@ -260,12 +303,109 @@ int test_LRA(int argc, char *argv[])
   std::cout << std::endl;
 
   State::SP_state final = stepper.state();
+  SP_matrix phi_mat;
+  SP_matrix precursors_mat;
+  SP_matrix power_mat;
+  SP_vector power;
+
+  phi_mat = stepper.flux_mat;
+  precursors_mat = stepper.precursors_mat;
+  power_mat = stepper.power_mat;
+  power = stepper.power;
+
+  phi_mat->print_matlab("lra_flux_fine.txt");
+  precursors_mat->print_matlab("lra_precursors_fine.txt");
+  power_mat->print_matlab("lra_spatail_power_fine.txt");
+  power->print_matlab("lra_power_fine.txt");
 
   printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
 
   return 0;
 
+}
+
+//---------------------------------------------------------------------------//
+int test_LRA_ROM(int argc, char *argv[])
+{
+
+  typedef TimeStepper<_2D> TS_2D;
+  typedef callow::MatrixDense::SP_matrix            SP_matrix;
+
+
+   InputDB::SP_input inp = get_input();
+  //-------------------------------------------------------------------------//
+  // MESH
+  //-------------------------------------------------------------------------//
+
+  TS_2D::SP_mesh mesh = get_mesh(2);
+
+  //-------------------------------------------------------------------------//
+  // MATERIAL
+  //-------------------------------------------------------------------------//
+
+  bool transport = false;
+  if (inp->get<std::string>("equation") != "diffusion") transport = true;
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+
+  //-------------------------------------------------------------------------//
+  // STEADY STATE
+  //-------------------------------------------------------------------------//
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+  // Normalize state.
+  double F = 0;
+  TS_2D::vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += mesh->volume(0) *
+         (ic->phi(0)[i] * mat->sigma_f(m, 0) +
+          ic->phi(1)[i] * mat->sigma_f(m, 1));
+  }
+  F *= detran_user::KAPPA / 17550.0;
+  ic->scale(1.0e-6/F);
+
+  //-------------------------------------------------------------------------//
+  // TIME STEPPER
+  //-------------------------------------------------------------------------//
+
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_basis";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis";
+
+  int r = 30;
+  int n = 484;
+
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, 2*r);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n*2, r);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p, basis_p, false);
+
+  detran_utilities::SP<detran_user::LRA> mat_lra;
+
+  mat_lra = mat;
+
+  R.set_multiphysics(mat_lra->physics(),
+                     detran_user::update_T_rhs<_2D>,
+                     (void *) mat_lra.bp());
+
+
+  R.Solve(ic);
+  //time(&end);
+  //time_t elapsed = end - begin;
+  //printf("time elapsed %1.6f\n", elapsed);
+
+  return 0;
 }
 //---------------------------------------------------------------------------//
 //              end of test_LRA.cc

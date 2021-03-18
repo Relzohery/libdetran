@@ -46,7 +46,9 @@ int test_ROM_diffusion(int argc, char *argv[])
  Mesh1D::SP_mesh mesh = get_mesh(1, "core");
  Material::SP_material mat = get_mat();
  InputDB::SP_input input = get_input();
+ input->put<std::string>("operator", "diffusion");
  input->put<std::string>("equation", "diffusion");
+ input->display();
 
  int n = mesh->number_cells();
  int r = 6;
@@ -54,8 +56,8 @@ int test_ROM_diffusion(int argc, char *argv[])
 // get the basis
  SP_matrix U;
  U = new callow::MatrixDense(2*n, 2*r);
- std::cout << n << "\n";
- ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_diff_r=6", U);
+
+ ROMBasis::GetBasis("../../../source/src/solvers/test/flux_basis_core0_diff", U);
 
  // ROM
  ROMSolver<_1D> ROM(input, mesh, mat);
@@ -64,7 +66,6 @@ int test_ROM_diffusion(int argc, char *argv[])
  ROM.Solve(U, ROM_flux);
  double keff_rom = ROM.keff();
 
- std::cout << keff_rom << "$$$$$$$$$$" << "\n";
  // FOM
  EigenvalueManager<_1D> manager(input, mat, mesh);
  manager.solve();
@@ -94,6 +95,7 @@ int test_ROM_diffusion(int argc, char *argv[])
    error2[i] = phi1_fom[i]/phi1_fom.norm() - phi1_rom[i]/phi1_rom.norm();
  }
 
+ printf(" keff_ref %10.5e  rom %10.5e\n", keff_fom, keff_rom);
  std::cout << "The error in group 1 is " << detran_utilities::norm(error1, "L2") << "\n";
  std::cout << "The error in group 2 is " << detran_utilities::norm(error2, "L2") << "\n";
  std::cout << "The absolute error in the eigenvalue  " << abs(keff_rom - keff_fom) << "\n";
@@ -110,6 +112,7 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
   Material::SP_material mat = get_mat();
   InputDB::SP_input input = get_input();
   input->put<std::string>("equation", "dd");
+  input->put<std::string>("operator", "energy-independent");
 
   ROMSolver<_1D> ROM(input, mesh, mat);
   int n = mesh->number_cells();
@@ -118,7 +121,8 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(n, r);
-  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/fission_density_RB_basis_core0_transport_r=9", U);
+
+  ROMBasis::GetBasis("../../../source/src/solvers/test/fission_density_core0_transport_r=7", U);
   SP_vector  fd_rom;
 
   std::cout << "########################################################" << "\n";
@@ -152,6 +156,9 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
     error[i] = fd_fom[i]/fd_fom.norm() - (*fd_rom)[i]/fd_rom->norm();
   }
 
+  printf(" keff_ref %10.5e  rom %10.5e\n", keff_fom, keff_rom);
+
+
   std::cout << "the error norm in the fission density =   " << error.norm()<<  "\n";
   std::cout << "The absolute error in the eigenvalue = " << abs(keff_rom - keff_fom) << "\n";
 
@@ -166,13 +173,18 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
   Material::SP_material mat = get_mat();
   InputDB::SP_input input = get_input();
 
+
+  input->put<std::string>("equation", "dd");
+  input->put<std::string>("operator", "energy-dependent");
+
   int n = mesh->number_cells();
   int r = 6;
 
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(2*n, 2*r);
-  ROMBasis::GetBasis("/home/rabab/opt/detran/source/src/solvers/test/flux_basis_core0_transport_r=6", U);
+
+  ROMBasis::GetBasis("../../../source/src/solvers/test/flux_basis_core0_transport_r=7", U);
 
   // ROM
   ROMSolver<_1D> ROM(input, mesh, mat);
@@ -209,6 +221,9 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
 
     error2[i] = phi1_fom[i]/phi1_fom.norm() - phi1_rom[i]/phi1_rom.norm();
   }
+
+  printf(" keff_ref %10.5e  rom %10.5e\n", keff_fom, keff_rom);
+
 
   std::cout << "The error in group 1 is " << detran_utilities::norm(error1, "L2") << "\n";
   std::cout << "The error in group 2 is " << detran_utilities::norm(error2, "L2") << "\n";
