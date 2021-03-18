@@ -66,6 +66,7 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
     db = d_inp->template get<SP_input>("rom_solver_db");
 
   }
+  else db = inp;
 
   d_solver = LinearSolverCreator::Create(db);
 }
@@ -290,24 +291,25 @@ void TransientSolver::Refersh_Operator()
 
 void TransientSolver::Solve(SP_state initial_state)
 {
-  d_material->update(0.0, 0, 1, false);
 
-  std::cout << "construct operator ******\n";
+  d_material->update(0.0, 0, 1, false);
 
   Construct_Operator(0, d_dt);
 
   d_state = initial_state;
 
-  std::cout << "initialize_precursors ******\n";
   initialize_precursors();
 
   ProjectInitial();
+
+ // if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
 
   double t = 0.0;
 
   int n = d_rf + d_rc;
 
   SP_matrix d_A_;
+
   d_A_ = new callow::MatrixDense(n, n);
 
   if (deim_flag)
@@ -317,15 +319,13 @@ void TransientSolver::Solve(SP_state initial_state)
 
   for (int step=0 ; step< d_number_steps; step++)
   {
-	//fluxes.clear();
-	std::cout << "step  = "<< step << "\n";
+	std::cout << "step  = " << step << "\n";
+
     t += d_dt;
+
     d_material->update(t, d_dt, 1, false);
 
-    if (d_material->update_material)
-    {
-     Refersh_Operator();
-    }
+    Refersh_Operator();
 
     for (int i=0; i<n; i++)
     {
@@ -337,7 +337,16 @@ void TransientSolver::Solve(SP_state initial_state)
     }
 
    d_solver->set_operators(d_A_, db);
+
    d_solver->solve(*d_sol0_r, *d_sol_r);
+
+
+   if (step == 0)
+   {
+   	 d_sol0_r->print_matlab("b.txt");
+   	 d_sol_r->print_matlab("x.txt");
+     d_A_->print_matlab("A.txt");
+   }
 
    // store this state in the solution matrix
    for (int i=0; i<n; i++)
@@ -346,12 +355,16 @@ void TransientSolver::Solve(SP_state initial_state)
      (*d_sol0_r)[i] = (*d_sol_r)[i];
    }
 
-   if (d_multiphysics) *d_multiphysics_0 = *d_multiphysics;
    // reconstruct the full solution
    reconstruct(step);
-   std::cout << " update multi physics **********\n";
-   if (d_multiphysics) update_multiphysics( t, d_dt, 1);
-   std::cout << " updated multi physics **********\n";
+
+   if (d_multiphysics)
+   {
+     update_multiphysics(t, d_dt, 1);
+     //*d_multiphysics_0 = *d_multiphysics;
+     *d_vec_multiphysics[0] = *d_multiphysics;
+   }
+
   }
   // temporary ... need to have getter for flux, etc
   d_flux->print_matlab("flux.txt");
@@ -363,7 +376,6 @@ void TransientSolver::Solve(SP_state initial_state)
 void TransientSolver::reconstruct(int step)
 
 {
-  //std::cout << "reconstructing &&&&&&&&&&&&&&&&&&\n";
   callow::Vector phi(d_number_groups*d_num_cells, 0.0);
   callow::Vector C(d_precursors_group*d_num_cells, 0.0);
 
@@ -499,12 +511,12 @@ set_multiphysics(SP_multiphysics ic,
 void TransientSolver::
 update_multiphysics(const double t, const double dt, const size_t order)
 {
+  std::cout << "t_eval " << t << "\n";
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
-  std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
+  //std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
   d_update_multiphysics_rhs_rom(d_multiphysics_data, fluxes, t, dt);
   //std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
-  std::cout << "fluxes[0][0] = " << fluxes[0][0] << "\n";
 
   // Loop through and compute
   //  y(n+1) = (1/a0) * ( dt*rhs + sum of bdf terms )
@@ -514,8 +526,8 @@ update_multiphysics(const double t, const double dt, const size_t order)
     MultiPhysics::vec_dbl &P   = d_multiphysics->variable(i);
 
     //std::cout << " Pold[0]=" << P[0] << std::endl;
-    printf("delP = %18.12e \n", P[0]);
-    printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
+    //printf("delP = %18.12e \n", P[0]);
+   // printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
 
     // Loop over all elements (usually spatial)
     for (int j = 0; j < P.size(); ++j)
