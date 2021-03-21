@@ -128,10 +128,10 @@ ADD_TEST(test_pin            	test_c5g7  0)
 ADD_TEST(test_assembly          test_c5g7  1)
 ADD_TEST(test_core              test_c5g7  2)
 
-ADD_EXECUTABLE(test_TransientROMSolver         	 test_TransientROMSolver.cc)
-TARGET_LINK_LIBRARIES(test_TransientROMSolver    	solvers)
-ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_rom   0)
-ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_fom   1)
+#ADD_EXECUTABLE(test_TransientROMSolver         	 test_TransientROMSolver.cc)
+#TARGET_LINK_LIBRARIES(test_TransientROMSolver    	solvers)
+#ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_rom   0)
+#ADD_TEST(test_TransientROMSolver                  test_TransientROMSolver_fom   1)
 
 
 ADD_EXECUTABLE(test_DEIM        	 test_DEIM.cc)
