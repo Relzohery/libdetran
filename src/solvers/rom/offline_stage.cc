@@ -76,3 +76,29 @@ vec_matrix offline_stage::Decompositon()
 
 return Aq;
 }
+
+
+
+void offline_stage::map_indices()
+{
+  DEIM D(d_U, d_r);
+  D.Search();
+  l = D.interpolation_indices();
+
+  d_target_rows = new int[d_r];
+  d_target_cols = new int[d_r];
+
+  int nz = 0;
+  for (int i=0; i < d_r; i++)
+  {
+    d_target_cols[i] = d_cols[l[i]];
+    for (int j=0; j < d_m; j++)
+    {
+      //std::cout << l[i] << "  " <<  d_rows[j] <<  "  " << d_rows[j+1] << " &&&&& \n";
+      if (d_rows[j] <= l[i] && l[i] <= d_rows[j+1])
+      {
+        d_target_rows[i] = j;
+      }
+    }
+  }
+}

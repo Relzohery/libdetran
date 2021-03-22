@@ -5,13 +5,15 @@
  *      Author: rabab
  */
 
-//#ifndef SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
-//#define SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
+#ifndef SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
+#define SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_
 
 #include "utilities/InputDB.hh"
 #include "material/Material.hh"
 #include "geometry/Mesh.hh"
-#include "solvers/rom/DEIM.hh"
+#include "DEIM.hh"
+
+using namespace detran;
 
 class offline_stage
 {
@@ -27,9 +29,13 @@ class offline_stage
 
 	vec_matrix Decompositon();
 
-	double* Interpolation_indices;
+	int* Interpolation_indices;
+	int* target_rows() {return d_target_rows;};
+	int* target_cols() {return d_target_cols;};
 
 	SP_matrixDense Ur_deim;
+
+	void map_indices();
 
   private:
 	int d_nnz;
@@ -38,6 +44,9 @@ class offline_stage
 	int d_m;
 	int d_n;
 	int d_r;
+	int* d_target_rows;
+	int* d_target_cols;
+	int* l;
     vec_matrix Aq;
     //SP_matrixDense UD;
     SP_matrix d_operator;
@@ -48,4 +57,4 @@ class offline_stage
 
 
 
-//#endif /* SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_ */
+#endif /* SOURCE_SRC_SOLVERS_ROM_OFFLINE_STAGE_HH_ */
