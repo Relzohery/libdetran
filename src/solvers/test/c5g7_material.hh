@@ -8,25 +8,39 @@
 #include "Material.hh"
 using namespace detran_material;
 
+#include <random>
 
-
-Material::SP_material get_mat()
+Material::SP_material get_mat(bool perturb=false)
 {
 
   Material::SP_material mat = Material::Create(7,7, "c5g7");
+
+  //std::default_random_engine generator;
+ // std::uniform_real_distribution<double> distribution(0.0, 1.0);
+
+  std::random_device rd;  //Will be used to obtain a seed for the random number engine
+  std::mt19937 generator(rd()); //Standard mersenne_twister_engine seeded with rd()
+  //std::default_random_engine generator;
+  std::uniform_real_distribution<double> distribution(0.0,1.0);
+
+  double number;
+
 
   // --------------------------------------------
   // Material 0: UO2 fuel-clad
   // --------------------------------------------
   int m =0;
   // Transport cross section
-  mat->set_sigma_t(m, 0, 1.77949E-01);
-  mat->set_sigma_t(m, 1, 3.29805E-01);
-  mat->set_sigma_t(m, 2, 4.80388E-01);
-  mat->set_sigma_t(m, 3, 5.54367E-01);
-  mat->set_sigma_t(m, 4, 3.11801E-01);
-  mat->set_sigma_t(m, 5, 3.95168E-01);
-  mat->set_sigma_t(m, 6, 5.64406E-01);
+  if (!perturb) number = 1.0;
+  else  number = distribution(generator)/100;
+
+  mat->set_sigma_t(m, 0, 1.77949E-01*(1 + number));
+  mat->set_sigma_t(m, 1, 3.29805E-01*(1 + number));
+  mat->set_sigma_t(m, 2, 4.80388E-01*(1 + number));
+  mat->set_sigma_t(m, 3, 5.54367E-01*(1 + number));
+  mat->set_sigma_t(m, 4, 3.11801E-01*(1 + number));
+  mat->set_sigma_t(m, 5, 3.95168E-01*(1 + number));
+  mat->set_sigma_t(m, 6, 5.64406E-01*(1 + number));
   // Absorption cross section
   // mat->set_sigma_a(m, 0, 8.02480E-03);
   // mat->set_sigma_a(m, 1, 3.71740E-03);
@@ -36,13 +50,15 @@ Material::SP_material get_mat()
   // mat->set_sigma_a(m, 5, 1.11260E-0);
   // mat->set_sigma_a(m, 6, 2.82780E-0);
   // Fission times nu
-  mat->set_sigma_f(m, 0, 7.21206E-03);
-  mat->set_sigma_f(m, 1, 8.19301E-04);
-  mat->set_sigma_f(m, 2, 6.45320E-03);
-  mat->set_sigma_f(m, 3, 1.85648E-02);
-  mat->set_sigma_f(m, 4, 1.78084E-02);
-  mat->set_sigma_f(m, 5, 8.30348E-02);
-  mat->set_sigma_f(m, 6, 2.16004E-01);
+  if (!perturb) number = 1.0;
+  else  number = distribution(generator)/100;
+  mat->set_sigma_f(m, 0, 7.21206E-03*(1 + number));
+  mat->set_sigma_f(m, 1, 8.19301E-04*(1 + number));
+  mat->set_sigma_f(m, 2, 6.45320E-03*(1 + number));
+  mat->set_sigma_f(m, 3, 1.85648E-02*(1 + number));
+  mat->set_sigma_f(m, 4, 1.78084E-02*(1 + number));
+  mat->set_sigma_f(m, 5, 8.30348E-02*(1 + number));
+  mat->set_sigma_f(m, 6, 2.16004E-01*(1 + number));
   mat->set_nu(m, 0, 2.78145E+00);
   mat->set_nu(m, 1, 2.47443E+00);
   mat->set_nu(m, 2, 2.43383E+00);
@@ -58,34 +74,37 @@ Material::SP_material get_mat()
   mat->set_chi(m, 4, 0.00000E+00);
   mat->set_chi(m, 5, 0.00000E+00);
   mat->set_chi(m, 6, 0.00000E+00);
+
+  if (!perturb) number = 1.0;
+  else  number = distribution(generator)/100;
   // Scattering
   // 1 <- g'
-  mat->set_sigma_s(m, 0, 0, 1.27537E-01);
+  mat->set_sigma_s(m, 0, 0, 1.27537E-01*(1 + number));
   // 2 <- g'
-  mat->set_sigma_s(m, 1, 0, 4.23780E-02);
-  mat->set_sigma_s(m, 1, 1, 3.24456E-01);
+  mat->set_sigma_s(m, 1, 0, 4.23780E-02*(1 + number));
+  mat->set_sigma_s(m, 1, 1, 3.24456E-01*(1 + number));
   // 3 <- g'
-  mat->set_sigma_s(m, 2, 0, 9.43740E-06);
-  mat->set_sigma_s(m, 2, 1, 1.63140E-03);
-  mat->set_sigma_s(m, 2, 2, 4.50940E-01);
+  mat->set_sigma_s(m, 2, 0, 9.43740E-06*(1 + number));
+  mat->set_sigma_s(m, 2, 1, 1.63140E-03*(1 + number));
+  mat->set_sigma_s(m, 2, 2, 4.50940E-01*(1 + number));
   // 4 <- g'
-  mat->set_sigma_s(m, 3, 0, 5.51630E-09);
-  mat->set_sigma_s(m, 3, 1, 3.14270E-09);
-  mat->set_sigma_s(m, 3, 2, 2.67920E-03);
-  mat->set_sigma_s(m, 3, 3, 4.52565E-01);
-  mat->set_sigma_s(m, 3, 4, 1.25250E-04);
+  mat->set_sigma_s(m, 3, 0, 5.51630E-09*(1 + number));
+  mat->set_sigma_s(m, 3, 1, 3.14270E-09*(1 + number));
+  mat->set_sigma_s(m, 3, 2, 2.67920E-03*(1 + number));
+  mat->set_sigma_s(m, 3, 3, 4.52565E-01*(1 + number));
+  mat->set_sigma_s(m, 3, 4, 1.25250E-04*(1 + number));
   // 5 <- g'
-  mat->set_sigma_s(m, 4, 3, 5.56640E-03);
-  mat->set_sigma_s(m, 4, 4, 2.71401E-01);
-  mat->set_sigma_s(m, 4, 5, 1.29680E-03);
+  mat->set_sigma_s(m, 4, 3, 5.56640E-03*(1 + number));
+  mat->set_sigma_s(m, 4, 4, 2.71401E-01*(1 + number));
+  mat->set_sigma_s(m, 4, 5, 1.29680E-03*(1 + number));
   // 6 <- g'
-  mat->set_sigma_s(m, 5, 4, 1.02550E-02);
-  mat->set_sigma_s(m, 5, 5, 2.65802E-01);
-  mat->set_sigma_s(m, 5, 6, 8.54580E-03);
+  mat->set_sigma_s(m, 5, 4, 1.02550E-02*(1 + number));
+  mat->set_sigma_s(m, 5, 5, 2.65802E-01*(1 + number));
+  mat->set_sigma_s(m, 5, 6, 8.54580E-03*(1 + number));
   // 7 <- g'
-  mat->set_sigma_s(m, 6, 4, 1.00210E-08);
-  mat->set_sigma_s(m, 6, 5, 1.68090E-02);
-  mat->set_sigma_s(m, 6, 6, 2.73080E-01);
+  mat->set_sigma_s(m, 6, 4, 1.00210E-08*(1 + number));
+  mat->set_sigma_s(m, 6, 5, 1.68090E-02*(1 + number));
+  mat->set_sigma_s(m, 6, 6, 2.73080E-01*(1 + number));
   mat->compute_sigma_a();
   mat->compute_diff_coef();
 
@@ -515,6 +534,7 @@ Material::SP_material get_mat()
   // Finalize
   mat->compute_sigma_a();
   mat->compute_diff_coef();  // note, we do this directly for conservation
+
   mat->finalize();
 
   return mat;
