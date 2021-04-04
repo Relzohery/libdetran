@@ -62,7 +62,6 @@ LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady)
 //---------------------------------------------------------------------------//
 void LRA::set_state(SP_state state)
 {
-  std::cout << "setting state *********************\n";
   Require(state);
   d_state = state;
 }
@@ -192,8 +191,6 @@ void LRA::update_impl()
 //---------------------------------------------------------------------------//
 void LRA::update_P_and_T(double t, double dt)
 {
- std::cout << "update P and T using state *********************\n";
-
   // Get fluxes
   const detran::State::moments_type &phi0 = d_state->phi(0);
   const detran::State::moments_type &phi1 = d_state->phi(1);
@@ -216,11 +213,6 @@ void LRA::update_P_and_T(double t, double dt)
 //---------------------------------------------------------------------------//
 void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, vec_matrix Temp_State_basis, double t, double dt)
 {
-
- // Get fluxes
-//  const detran::State::moments_type &phi0 = d_state->phi(0);
-//  const detran::State::moments_type &phi1 = d_state->phi(1);
-
   // Compute power and temperature.  Note, we "unscale" by keff.
   vec_dbl &T = d_physics->variable(0);
 
@@ -238,7 +230,6 @@ void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, vec_matrix Temp_St
 //	Temp_State_basis[1]->multiply(fluxes[1], v2);
 //  }
 
-//  std::cout << d_P.size() << "  ^^^^^^^^^^^^^^^^\n";
 //  for (int i=0; i<10; i++)
 //  {
 //    F = v1[i] + v2[i];
@@ -261,19 +252,11 @@ void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, vec_matrix Temp_St
 
 void LRA::multipysics_reduced(SP_matrix  U)
 {
-
-  std::cout << " multipysics_reduced **********\n";
-
-  std::cout << d_physics->variable(0).size() << " &&&&&\n";
-
-  std::cout << U->number_rows() << " &&&&&\n";
-
   callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
 
   for (int i =0; i< d_physics->variable(0).size(); i++)
   {
     T_fom[i] = d_physics->variable(0)[i];
-
   }
 
   callow::Vector T_rom(U->number_columns(), 0.0);
@@ -288,7 +271,6 @@ void LRA::multipysics_reduced(SP_matrix  U)
   }
 
 }
-
 
 } // end namespace detran_user
 
