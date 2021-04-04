@@ -10,7 +10,8 @@
 // LIST OF TEST FUNCTIONS
 #define TEST_LIST               \
         FUNC(test_LRA)        \
-		FUNC(test_LRA_ROM)
+		FUNC(test_LRA_ROM) \
+		FUNC(test_LRA_DEIM)
 
 #include "TestDriver.hh"
 #include "TimeStepper.hh"
@@ -31,6 +32,8 @@
 //#include "angle/test/quadrature_fixture.hh"
 #include "geometry/test/mesh_fixture.hh"
 #include "material/test/material_fixture.hh"
+#include "/home/rabab/opt/gperftools/src/gperftools/profiler.h"
+
 //#include "external_source/test/external_source_fixture.hh"
 
 using namespace detran_test;
@@ -197,10 +200,10 @@ InputDB::SP_input inp(new InputDB("LRA benchmark"));
   inp->put<int>("ts_max_steps",                   10000);
   //inp->put<int>("ts_scheme",                      TS_2D::BDF2);
   inp->put<int>("ts_output",                      0);
-  inp->put<double>("ts_step_size",                   0.001);
+  inp->put<double>("ts_step_size",                   0.01);
   inp->put<double>("ts_final_time",                  3.0);
   //inp->put<int>("ts_no_extrapolation",            1);
-  inp->put<int>("ts_max_iters",                   10);
+  inp->put<int>("ts_max_iters",                   1);
   inp->put<double>("ts_tolerance",                   1.0e-8);
   #
   InputDB::SP_input preconditioner_db(new InputDB("preconditioner_db"));
@@ -286,6 +289,8 @@ int test_LRA(int argc, char *argv[])
   // TIME STEPPER
   //-------------------------------------------------------------------------//
 
+  time_t begin, end;
+  time(&begin);
   TS_2D stepper(inp, mat, mesh, true);
   stepper.set_monitor(test_monitor);
   detran_utilities::SP<detran_user::LRA> mat_lra;
@@ -307,19 +312,26 @@ int test_LRA(int argc, char *argv[])
   SP_matrix precursors_mat;
   SP_matrix power_mat;
   SP_vector power;
+  SP_matrix Temperature;
 
   phi_mat = stepper.flux_mat;
   precursors_mat = stepper.precursors_mat;
   power_mat = stepper.power_mat;
   power = stepper.power;
+  Temperature = stepper.Temperature;
 
   phi_mat->print_matlab("lra_flux_fine.txt");
   precursors_mat->print_matlab("lra_precursors_fine.txt");
   power_mat->print_matlab("lra_spatail_power_fine.txt");
   power->print_matlab("lra_power_fine.txt");
+  Temperature->print_matlab("lra_temperature_fine.txt");
 
   printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
+
+  time(&end);
+  time_t elapsed = end - begin;
+  std::cout << "elapsed = " << elapsed << "\n";
 
   return 0;
 
@@ -375,10 +387,11 @@ int test_LRA_ROM(int argc, char *argv[])
   // TIME STEPPER
   //-------------------------------------------------------------------------//
 
-  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_basis";
-  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis";
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_basis_fine";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_fine";
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
 
-  int r = 30;
+  int r = 40;
   int n = 484;
 
   SP_matrix basis_f;
@@ -389,21 +402,134 @@ int test_LRA_ROM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n*2, r);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-  TransientSolver R(inp, mesh, mat, basis_f, basis_p, basis_p, false);
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(n, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
+
+  time_t begin, end;
+  time(&begin);
+  ProfilerStart("test_LRA_rom.prof");
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
 
   detran_utilities::SP<detran_user::LRA> mat_lra;
 
   mat_lra = mat;
+  //mat_lra->multipysics_reduced(basis_T);
 
   R.set_multiphysics(mat_lra->physics(),
                      detran_user::update_T_rhs<_2D>,
+					 basis_T,
                      (void *) mat_lra.bp());
-
 
   R.Solve(ic);
   //time(&end);
   //time_t elapsed = end - begin;
   //printf("time elapsed %1.6f\n", elapsed);
+  time(&end);
+  time_t elapsed = end - begin;
+  ProfilerStop();
+  std::cout << "elapsed = " << elapsed << "\n";
+
+  return 0;
+}
+
+//---------------------------------------------------------------------------//
+//---------------------------------------------------------------------------//
+int test_LRA_DEIM(int argc, char *argv[])
+{
+
+  typedef TimeStepper<_2D> TS_2D;
+  typedef callow::MatrixDense::SP_matrix            SP_matrix;
+
+
+   InputDB::SP_input inp = get_input();
+  //-------------------------------------------------------------------------//
+  // MESH
+  //-------------------------------------------------------------------------//
+
+  TS_2D::SP_mesh mesh = get_mesh(2);
+
+  //-------------------------------------------------------------------------//
+  // MATERIAL
+  //-------------------------------------------------------------------------//
+
+  bool transport = false;
+  if (inp->get<std::string>("equation") != "diffusion") transport = true;
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+
+  //-------------------------------------------------------------------------//
+  // STEADY STATE
+  //-------------------------------------------------------------------------//
+
+  EigenvalueManager<_2D> manager(inp, mat, mesh);
+  manager.solve();
+  State::SP_state ic = manager.state();
+  mat->set_eigenvalue(ic->eigenvalue());
+  mat->update(0, 0, 1, false);
+
+  // Normalize state.
+  double F = 0;
+  TS_2D::vec_int matmap = mesh->mesh_map("MATERIAL");
+  for (int i = 0; i < mesh->number_cells(); ++i)
+  {
+    int m = matmap[i];
+    F += mesh->volume(0) *
+         (ic->phi(0)[i] * mat->sigma_f(m, 0) +
+          ic->phi(1)[i] * mat->sigma_f(m, 1));
+  }
+  F *= detran_user::KAPPA / 17550.0;
+  ic->scale(1.0e-6/F);
+
+  //-------------------------------------------------------------------------//
+  // TIME STEPPER
+  //-------------------------------------------------------------------------//
+
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_basis";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis";
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  const char* deim_basis = "./../../../source/src/solvers/test/rom_basis/LRA_deim_basis";
+  int r = 40;
+  int n = 484;
+
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, 2*r);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n*2, r);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(n, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
+
+  SP_matrix basis_deim;
+  basis_deim = new callow::MatrixDense(5148, 20);
+  ROMBasis::GetBasis(deim_basis, basis_deim);
+
+  time_t begin, end;
+  time(&begin);
+  ProfilerStart("test_LRA_deim.prof");
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
+  R.set_DEIM(basis_deim);
+
+  detran_utilities::SP<detran_user::LRA> mat_lra;
+
+  mat_lra = mat;
+  //mat_lra->multipysics_reduced(basis_T);
+  R.set_multiphysics(mat_lra->physics(),
+                     detran_user::update_T_rhs<_2D>,
+					 basis_T,
+                     (void *) mat_lra.bp());
+
+  R.Solve(ic);
+  //time(&end);
+  //time_t elapsed = end - begin;
+  //printf("time elapsed %1.6f\n", elapsed);
+  time(&end);
+  time_t elapsed = end - begin;
+  ProfilerStop();
+  std::cout << "elapsed = " << elapsed << "\n";
 
   return 0;
 }

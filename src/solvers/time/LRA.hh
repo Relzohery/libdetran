@@ -59,7 +59,8 @@ public:
   typedef detran::TimeDependentMaterial             Base;
   typedef detran_geometry::Mesh::SP_mesh            SP_mesh;
   typedef detran::MultiPhysics::SP_multiphysics     SP_multiphysics;
-
+  typedef callow::MatrixDense::SP_matrix            SP_matrix;
+  typedef std::vector<SP_matrix>                    vec_matrix;
   //-------------------------------------------------------------------------//
   // CONSTRUCTOR & DESTRUCTOR
   //-------------------------------------------------------------------------//
@@ -80,12 +81,14 @@ public:
   void set_state(SP_state);
   void initialize_materials();
   void update_P_and_T(double t, double dt);
-  void update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double dt);
+  void update_P_and_T(std::vector<callow::Vector>  fluxes, vec_matrix Temp_State_basis, double t, double dt);
   vec_dbl T() {return d_T;}
   vec_dbl P() {return d_P;}
   SP_multiphysics physics() {return d_physics;}
   double area() {return d_A;}
   void set_area(double a) {d_A = a;}
+
+  void multipysics_reduced(SP_matrix  U);
 
   //-------------------------------------------------------------------------//
   // DATA
@@ -103,6 +106,8 @@ public:
   vec_int d_assembly_map;
   /// Multiphysics (just T)
   SP_multiphysics d_physics;
+
+  SP_multiphysics d_physics_rom;
   /// Fine mesh temperature
   vec_dbl d_T;
   /// Old fine mesh temperature
@@ -153,7 +158,7 @@ void update_T_rhs(void* data,
 //---------------------------------------------------------------------------//
 template <class D>
 void update_T_rhs(void* data,
-		          std::vector<callow::Vector>  fluxes,
+		          std::vector<callow::Vector>  fluxes, std::vector<callow::MatrixDense::SP_matrix>  Temp_State_basis,
                   double t,
                   double dt)
 {
@@ -165,7 +170,7 @@ void update_T_rhs(void* data,
 //  std::cout << mat->physics()->variable(0)[0] << " "
 //            << step->multiphysics()->variable(0)[0] << std::endl;
   // update
-  mat->update_P_and_T(fluxes, t, dt);
+  mat->update_P_and_T(fluxes, Temp_State_basis, t, dt);
 }
 } // end namespace detran_user
 

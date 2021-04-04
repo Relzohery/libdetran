@@ -99,6 +99,7 @@ void ROMSolver<D>::Solve(SP_matrix d_U, SP_vector sol)
   SP_eigensolver eigensolver;
   eigensolver = Creator_T::Create(d_input);
 
+
   if (d_operator == "diffusion" || d_operator == "EnergyDependent")
   {
    P.SetOperators(d_B, d_U);

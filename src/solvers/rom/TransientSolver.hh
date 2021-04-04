@@ -55,15 +55,14 @@ public:
   typedef callow::Matrix::SP_matrix                 SP_matrix_Base;
   typedef std::vector<SP_matrix>                    vec_matrix;
   typedef detran_utilities::SP<MultiPhysics>        SP_multiphysics;
-  typedef std::vector<callow::Vector>                    vec_flux;
+  typedef std::vector<callow::Vector>               vec_flux;
 
   typedef void (*multiphysics_pointer_rom)
-                (void*, vec_flux fluxes, double, double);
+                (void*, vec_flux fluxes, vec_matrix TEMP_State_basis, double, double);
   typedef std::vector<SP_multiphysics>              vec_multiphysics;
 
 
-  TransientSolver(SP_input inp, SP_mesh mesh, SP_material material, SP_matrix flux_basis, SP_matrix precursors_basis,
-		          SP_matrix Udeim, bool deim);
+  TransientSolver(SP_input inp, SP_mesh mesh, SP_material material, SP_matrix flux_basis, SP_matrix precursors_basis);
 
   void Solve(SP_state initial_state);
 
@@ -72,33 +71,39 @@ public:
   void online();
 
   LinearSolverCreator::SP_db db_deim;
+
   LinearSolver::SP_db get_db()
   {
-	LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
+    LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
 
-  p->put<double>("linear_solver_atol",                 1e-16);
-  p->put<double>("linear_solver_rtol",                 1e-15);
-  p->put<std::string>("linear_solver_type", "gmres");
+    p->put<double>("linear_solver_atol",                 1e-16);
+    p->put<double>("linear_solver_rtol",                 1e-15);
+    //p->put<std::string>("linear_solver_type", "gmres");
 
-  //p->put<std::string>("linear_solver_type", "petsc");
-  //p->put<std::string>("pc_type", "petsc_pc");
-  //p->put<std::string>("petsc_pc_type", "lu");
-  p->put<int>("linear_solver_maxit", 50);
-  p->put<int>("linear_solver_gmres_restart", 16);
-  p->put<int>("linear_solver_maxit",                   2000);
-  p->put<int>("linear_solver_gmres_restart",           30);
-  p->put<int>("linear_solver_monitor_level",           0);
-
+    p->put<std::string>("linear_solver_type", "petsc");
+    p->put<std::string>("pc_type", "petsc_pc");
+    p->put<std::string>("petsc_pc_type", "lu");
+    p->put<int>("linear_solver_maxit", 50);
+    p->put<int>("linear_solver_gmres_restart", 16);
+    p->put<int>("linear_solver_maxit",                   2000);
+    p->put<int>("linear_solver_gmres_restart",           30);
+    p->put<int>("linear_solver_monitor_level",           0);
   return p;
 }
 
-void set_multiphysics(SP_multiphysics ic,
+  void set_multiphysics(SP_multiphysics ic,
                       multiphysics_pointer_rom update_multiphysics_rhs,
+					  SP_matrix Temp_State_basis,
                       void* multiphysics_data = NULL);
 
-void update_multiphysics(const double t, const double dt, const size_t order);
+  void update_multiphysics(const double t, const double dt, const size_t order);
 
-std::vector<callow::Vector>  fluxes;
+  void set_DEIM(SP_matrix U_deim);
+
+  std::vector<callow::Vector>  fluxes;
+
+  bool check_convergence();
+
 
 private:
   /// State vector
@@ -202,10 +207,16 @@ private:
   int d_rf;
   /// Precursors rank
   int d_rc;
+  /// deim rank
+  int r_deim;
   /// Linear solver
   SP_solver d_solver;
   /// linear solver DEIM
   SP_solver d_solver_deim;
+
+  double d_tolerance;
+  /// Maximum nonlinear iterations
+  size_t d_maximum_iterations;
   /// Compute the initial precursors concentration
   void initialize_precursors();
   /// Project the initial flux and precursors on space of the reduced basis
@@ -223,6 +234,8 @@ private:
   void* d_multiphysics_data;
   vec_multiphysics d_vec_multiphysics;
   SP_multiphysics d_multiphysics_0;
+
+  vec_matrix Temp_State_basis;
 
 };
 

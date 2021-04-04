@@ -46,6 +46,7 @@ void OperatorProjection::Project(SP_matrixDense Ar)
   Vector v(d_n);
   for (int i=0; i<d_r; i++)
   {
+
    Vector v(d_n, &(*d_U)(0, i));
    // compute AU
   d_A->multiply(v, y);

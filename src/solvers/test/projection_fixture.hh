@@ -1,3 +1,4 @@
+
 /*
  * projection_fixture.hh
  *
@@ -34,40 +35,40 @@ Material::SP_material get_mat()
   Material::SP_material mat = Material::Create(4, 2, "slabreactor");
   // Material 0: Water
   // Total
-  mat->set_sigma_t(0, 0, 0.1890);
-  mat->set_sigma_t(0, 1, 1.4633);
+  mat->set_sigma_t(0, 0, 0.185343257302);
+  mat->set_sigma_t(0, 1, 1.45564669643);
 
   // Fission
-  mat->set_sigma_f(0, 0, 0.0);
-  mat->set_sigma_f(0, 1, 0.0);
+  mat->set_sigma_f(0, 0, 0);
+  mat->set_sigma_f(0, 1, 0);
   mat->set_chi(0, 0, 0.0);
   mat->set_chi(0, 1, 0.0);
 
   // Scattering
-  mat->set_sigma_s(0, 0, 0, 0.1507);
-  mat->set_sigma_s(0, 0, 1, 0.0000);
-  mat->set_sigma_s(0, 1, 0, 0.0380);
-  mat->set_sigma_s(0, 1, 1, 1.4536);
+  mat->set_sigma_s(0, 0, 0, 0.152722299219);
+  mat->set_sigma_s(0, 0, 1, 0.000);
+  mat->set_sigma_s(0, 1, 0, 0.0160150759918);
+  mat->set_sigma_s(0, 1, 1, 1.43551589635);
   mat->compute_sigma_a();
   mat->compute_diff_coef();
 
 
   // Material 1: Fuel I
   // Total
-  mat->set_sigma_t(1, 0, 0.2263);
-  mat->set_sigma_t(1, 1, 1.0119);
+  mat->set_sigma_t(1, 0, 0.229804263342);
+  mat->set_sigma_t(1, 1, 1.02891192068);
 
   // Fission
-  mat->set_sigma_f(1, 0, 0.0067);
-  mat->set_sigma_f(1, 1, 0.1241);
+  mat->set_sigma_f(1, 0, 0.0067060795922);
+  mat->set_sigma_f(1, 1, 0.125201394293);
   mat->set_chi(1, 0, 1.0);
   mat->set_chi(1, 1, 0.0);
 
   // Scattering
-  mat->set_sigma_s(1, 0, 0, 0.2006);
+  mat->set_sigma_s(1, 0, 0, 0.202916148126);
   mat->set_sigma_s(1, 0, 1, 0.0000);
-  mat->set_sigma_s(1, 1, 0, 0.0161);
-  mat->set_sigma_s(1, 1, 1, 0.9355);
+  mat->set_sigma_s(1, 1, 0, 0.0163393070276);
+  mat->set_sigma_s(1, 1, 1, 0.924336913278);
   mat->compute_sigma_a();
   mat->compute_diff_coef();                   ;
 
@@ -75,40 +76,40 @@ Material::SP_material get_mat()
   // Material 3: Fuel II
 
   // Total
-  mat->set_sigma_t(2, 0, 0.2252);
-  mat->set_sigma_t(2, 1, 0.9915);
+  mat->set_sigma_t(2, 0, 0.224822827113);
+  mat->set_sigma_t(2, 1, 0.998816575222);
 
   // Fission
-  mat->set_sigma_f(2, 0, 0.0078);
-  mat->set_sigma_f(2, 1, 0.1542);
+  mat->set_sigma_f(2, 0, 0.00768317162438);
+  mat->set_sigma_f(2, 1, 0.125991676867);
   mat->set_chi(2, 0, 1.0);
   mat->set_chi(2, 1, 0.0);
 
   // Scattering
-  mat->set_sigma_s(2, 0, 0, 0.1995);
+  mat->set_sigma_s(2, 0, 0, 0.199026443318);
   mat->set_sigma_s(2, 0, 1, 0.0000);
-  mat->set_sigma_s(2, 1, 0, 0.0156);
-  mat->set_sigma_s(2, 1, 1, 0.9014);
+  mat->set_sigma_s(2, 1, 0, 0.0158835171486);
+  mat->set_sigma_s(2, 1, 1, 0.887589148437);
   mat->compute_sigma_a();
   mat->compute_diff_coef();                   ;
 
   // Material 4: Fuel II + Gd
 
  // Total
-  mat->set_sigma_t(3, 0, 0.2173);
-  mat->set_sigma_t(3, 1, 1.0606);
+  mat->set_sigma_t(3, 0, 0.217344332576);
+  mat->set_sigma_t(3, 1, 1.05429714894);
 
   // Fission
-  mat->set_sigma_f(3, 0, 0.0056);
-  mat->set_sigma_f(3, 1, 0.0187);
+  mat->set_sigma_f(3, 0, 0.00549089320936);
+  mat->set_sigma_f(3, 1, 0.0178328973774);
   mat->set_chi(3, 0, 1.0);
   mat->set_chi(3, 1, 0.0);
 
    // Scattering
-  mat->set_sigma_s(3, 0, 0, 0.1902);
+  mat->set_sigma_s(3, 0, 0, 0.190555374437);
   mat->set_sigma_s(3, 0, 1, 0.0000);
-  mat->set_sigma_s(3, 1, 0, 0.0136);
-  mat->set_sigma_s(3, 1, 1, 0.5733);
+  mat->set_sigma_s(3, 1, 0, 0.013504085703);
+  mat->set_sigma_s(3, 1, 1, 0.562862095564);
   mat->compute_sigma_a();
   mat->compute_diff_coef();                   ;
 
@@ -154,7 +155,7 @@ Mesh1D::SP_mesh get_mesh(int fmm = 1, std::string id="assembly")
   //cm_core.assign(0.0 ,0.0);
 
   Mesh1D::vec_int mt_0(6);
-  mt_0[0] = 0; mt_0[1] =1;
+  mt_0[0] = 0; mt_0[1] = 1;
   mt_0[2] = 2; mt_0[3] = 2;
   mt_0[4] = 1; mt_0[5] = 0;
 
@@ -172,6 +173,7 @@ Mesh1D::SP_mesh get_mesh(int fmm = 1, std::string id="assembly")
   mt_3[0] = 0; mt_3[1] = 3;
   mt_3[2] = 3; mt_3[3] = 3;
   mt_3[4] = 3; mt_3[5] = 0;
+
 
   Mesh1D::vec_int mt_core0(42);
   mt_core0[0] = 0; mt_core0[1] = 1;
@@ -209,7 +211,6 @@ Mesh1D::SP_mesh get_mesh(int fmm = 1, std::string id="assembly")
   }
   else if (id == "core")
   {
-   std::cout << " core mesh" << "\n";
    Mesh1D::SP_mesh mesh = Mesh1D::Create(fm_core, cm_core, mt_core0);
 
    return mesh;
@@ -227,17 +228,36 @@ InputDB::SP_input get_input()
   inp->put<int>("inner_max_iters",            1000);
   inp->put<double>("inner_tolerance",            1e-7);
   inp->put<int>("inner_print_level",          0);
-  inp->put<std::string>("outer_solver",              "GMRES");
+  inp->put<std::string>("outer_solver",              "GS");
   inp->put<int>("outer_max_iters",            1000);
   inp->put<double>("outer_tolerance",            1e-7);
-  inp->put<int>("outer_print_level",          0);
-  inp->put<std::string>("eigen_solver",       "arnoldi");
+  inp->put<int>("inner_print_level",          0);
+  inp->put<int>("outer_print_level",          1);
+ // inp->put<std::string>("eigen_solver",       "arnoldi");
   inp->put<int>("eigen_max_iters",            200);
   inp->put<double>("eigen_tolerance",            1e-7);
   inp->put<std::string>("bc_west",                    "vacuum");
   inp->put<std::string>("bc_east",                    "vacuum");
   inp->put<int>("quad_number_polar_octant",   16);
 
+  InputDB::SP_input db(new InputDB("callow dp"));
+  db->put<double>("linear_solver_atol",              1e-12);
+  db->put<double>("linear_solver_rtol",              1e-12);
+  db->put<std::string>("linear_solver_type",              "petsc");
+  db->put<int>("linear_solver_maxit",             5000);
+  db->put<int>("linear_solver_gmres_restart",     30);
+  db->put<int>("linear_solver_monitor_level",     0);
+  db->put<std::string>("pc_type",                         "petsc_pc");
+  db->put<std::string>("petsc_pc_type",                   "lu");
+  db->put<std::string>("eigen_solver_type",               "slepc");
+  db->put<int>("eigen_solver_monitor_level",      2);
+  db->put<InputDB::SP_input>("inner_solver_db",               db);
+  db->put<InputDB::SP_input>("inner_pc_db",                   db);
+  db->put<InputDB::SP_input>("outer_solver_db",               db);
+  db->put<InputDB::SP_input>("eigen_solver_db",               db);
+
+
   return inp;
 }
+
 

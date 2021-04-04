@@ -1,3 +1,4 @@
+
 /*
  * test_ROMSolver.cc
  *
@@ -50,11 +51,12 @@ int test_ROM_diffusion(int argc, char *argv[])
  input->display();
 
  int n = mesh->number_cells();
- int r = 5;
+ int r = 6;
 
 // get the basis
  SP_matrix U;
  U = new callow::MatrixDense(2*n, 2*r);
+
  ROMBasis::GetBasis("../../../source/src/solvers/test/flux_basis_core0_diff", U);
 
  // ROM
@@ -114,20 +116,28 @@ int test_ROM_EnergyIndependent(int argc, char *argv[])
 
   ROMSolver<_1D> ROM(input, mesh, mat);
   int n = mesh->number_cells();
-  int r = 7;
+  int r = 9;
 
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(n, r);
+
   ROMBasis::GetBasis("../../../source/src/solvers/test/fission_density_core0_transport_r=7", U);
   SP_vector  fd_rom;
 
+  std::cout << "########################################################" << "\n";
+  std::cout << "################### Reduced Order Model  ##################" << "\n";
+  std::cout << "########################################################" << "\n";
   // ROM
   fd_rom = new callow::Vector(n, 0.0);
   ROM.Solve(U, fd_rom);
   double keff_rom = ROM.keff();
 
+
  //FOM
+  std::cout << "\n########################################################" << "\n";
+  std::cout << "################### Full Order Model  ##################" << "\n";
+  std::cout << "########################################################" << "\n";
   EigenvalueManager<_1D> manager(input, mat, mesh);
   manager.solve();
   double keff_fom = manager.state()->eigenvalue();
@@ -168,11 +178,12 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
   input->put<std::string>("operator", "energy-dependent");
 
   int n = mesh->number_cells();
-  int r = 7;
+  int r = 6;
 
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(2*n, 2*r);
+
   ROMBasis::GetBasis("../../../source/src/solvers/test/flux_basis_core0_transport_r=7", U);
 
   // ROM
@@ -223,5 +234,3 @@ int test_ROM_EnergyDependent(int argc, char *argv[])
 
  return 0;
 }
-
-
