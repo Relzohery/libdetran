@@ -122,11 +122,14 @@ public:
   SP_multiphysics multiphysics() {return d_multiphysics;}
   SP_fissionsource fissionsource() {return d_fissionsource;}
   double residual_norm() {return d_residual_norm;}
+
+  /// added by Rabab, temporarily to get the snapshots
   SP_matrix flux_mat;
   SP_matrix precursors_mat;
   SP_matrix power_mat;
   SP_matrix LossMatrix_snaps;
   SP_vector power;
+  SP_matrix Temperature;
 
   /// Set a user-defined monitor function.
   void set_monitor(monitor_pointer monitor, void* monitor_data = NULL)

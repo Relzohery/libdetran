@@ -11,14 +11,12 @@
 
 
 TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material material,
-		                 SP_matrix flux_basis, SP_matrix precursors_basis, SP_matrix Udeim, bool deim)
+		                         SP_matrix flux_basis, SP_matrix precursors_basis)
 :d_mesh(mesh),
  d_material(material),
  d_inp(inp),
  d_precursors_basis(precursors_basis),
- d_flux_basis(flux_basis),
- d_deim_basis(Udeim),
- deim_flag (deim)
+ d_flux_basis(flux_basis)
 {
   d_num_cells = d_mesh->number_cells();
   d_number_groups = d_material->number_groups();
@@ -64,11 +62,17 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   if (d_inp->check("rom_solver_db"))
   {
     db = d_inp->template get<SP_input>("rom_solver_db");
-
   }
+
   else db = inp;
 
   d_solver = LinearSolverCreator::Create(db);
+
+  if (d_inp->check("ts_max_iters"))
+      d_maximum_iterations = d_inp->template get<int>("ts_max_iters");
+  if (d_inp->check("ts_tolerance"))
+      d_tolerance = d_inp->template get<double>("ts_tolerance");
+
 }
 
 //------------------------------------------------------------------------------------//
@@ -210,8 +214,6 @@ void TransientSolver::Construct_Operator(double t, double dt)
   Projector.SetOperators(d_L_prime, d_flux_basis);
   Projector.Project(d_Lr);
 
-
-
   // this assumes that a basis set is generated for each flux group, so the velocity
   // is not collapsed.
   int r = d_rf/d_number_groups;
@@ -264,11 +266,11 @@ void TransientSolver::Refersh_Operator()
   }
   else
   {
-  d_Lr = new callow::MatrixDense(d_rf, d_rf);
+    d_Lr = new callow::MatrixDense(d_rf, d_rf);
 
-  OperatorProjection Projector(1);
-  Projector.SetOperators(d_L, d_flux_basis);
-  Projector.Project(d_Lr);
+    OperatorProjection Projector(1);
+    Projector.SetOperators(d_L, d_flux_basis);
+    Projector.Project(d_Lr);
   }
   const vec_int &mat_map = d_mesh->mesh_map("MATERIAL");
 
@@ -291,7 +293,6 @@ void TransientSolver::Refersh_Operator()
 
 void TransientSolver::Solve(SP_state initial_state)
 {
-
   d_material->update(0.0, 0, 1, false);
 
   Construct_Operator(0, d_dt);
@@ -327,6 +328,12 @@ void TransientSolver::Solve(SP_state initial_state)
 
     Refersh_Operator();
 
+//    if (step == 8)
+//    {
+//      d_b_deim->print_matlab("b_deim.txt");
+//      d_x_deim->print_matlab("x_deim.txt");
+//    }
+
     for (int i=0; i<n; i++)
     {
       for (int j=0; j<n; j++)
@@ -336,22 +343,21 @@ void TransientSolver::Solve(SP_state initial_state)
       }
     }
 
+   size_t iteration = 1;
    d_solver->set_operators(d_A_, db);
-
-   d_solver->solve(*d_sol0_r, *d_sol_r);
-
-
-   if (step == 0)
+   for (; iteration <= d_maximum_iterations; ++iteration)
    {
-   	 d_sol0_r->print_matlab("b.txt");
-   	 d_sol_r->print_matlab("x.txt");
-     d_A_->print_matlab("A.txt");
-   }
+	  d_solver->solve(*d_sol0_r, *d_sol_r);
+
+      bool converged = check_convergence();
+      if (iteration == d_maximum_iterations) converged = true;
+	  if (converged) break;
+
+   } // end iterations
 
    // store this state in the solution matrix
    for (int i=0; i<n; i++)
    {
-     //(*d_sols)(i, step) = (*d_sol_r)[i];
      (*d_sol0_r)[i] = (*d_sol_r)[i];
    }
 
@@ -361,7 +367,6 @@ void TransientSolver::Solve(SP_state initial_state)
    if (d_multiphysics)
    {
      update_multiphysics(t, d_dt, 1);
-     //*d_multiphysics_0 = *d_multiphysics;
      *d_vec_multiphysics[0] = *d_multiphysics;
    }
 
@@ -400,23 +405,29 @@ void TransientSolver::reconstruct(int step)
   d_flux->insert_col(step+1, phi_, 0);
   d_precursors->insert_col(step+1, C_, 0);
 
-  //std::cout << "phi[0][0]= " << phi[0] << " \n";
-
-  ///
   fluxes.clear();
+  int rg = d_rf/d_number_groups;
+
+  //  for (int g=0; g<d_number_groups; g++)
+  //  {
+  //    callow::Vector phi_g(rg, 0.0);
+  //    for (int i=0; i<rg; i++)
+  //    {
+  //     phi_g[i] = (*d_sol_r)(rg*g + i);
+  //    }
+  //
+//    fluxes.push_back(phi_g);
+//  }
 
   for (int g=0; g<d_number_groups; g++)
   {
     callow::Vector phi_g(d_num_cells, 0.0);
     for (int i=0; i<d_num_cells; i++)
     {
-     phi_g[i] = phi[d_num_cells*g + i];
+      phi_g[i] = phi_[d_num_cells*g + i];
     }
-
-    fluxes.push_back(phi_g);
+      fluxes.push_back(phi_g);
   }
- // std::cout << "fluxes[0][0]= " << fluxes[0][0] << " ***\n";
-  //std::cout << "reconstructed &&&&&&&&&&&&&&&&&&\n";
 
 }
 
@@ -424,13 +435,14 @@ void TransientSolver::reconstruct(int step)
 
 void TransientSolver::offline()
 {
-   DEIM D(d_deim_basis, 3);
+   DEIM D(d_deim_basis, r_deim);
    D.Search();
    l = D.interpolation_indices();
-   Ur_deim = new callow::MatrixDense(3, 3);
+   Ur_deim = new callow::MatrixDense(r_deim, r_deim);
    Ur_deim = D.ReducedBasis();
 
-   offline_stage O(d_L, d_flux_basis, d_deim_basis, 3);
+   Ur_deim->print_matlab("U_deim.txt");
+   offline_stage O(d_L, d_flux_basis, d_deim_basis, r_deim);
 
    M_L = O.Decompositon();
 
@@ -445,42 +457,39 @@ void TransientSolver::offline()
 //----------------------------------------------------------------------------//
 void TransientSolver::online()
 {
+  d_x_deim = new callow::Vector(r_deim, 0.0);
+  d_b_deim = new callow::Vector(r_deim, 0.0);
 
-	d_x_deim = new callow::Vector(3, 0.0);
-	d_b_deim = new callow::Vector(3, 0.0);
+  for (int i=0; i<r_deim; i++)
+  {
+    int id = l[i];
+    (*d_b_deim)(i) = vectorized_matrix[id];
+  }
 
-	for (int i=0; i<3; i++)
+  d_solver_deim->solve(*d_b_deim, *d_x_deim);
+
+  d_Lr = new callow::MatrixDense(d_rf, d_rf);
+
+  double v;
+  // construct the Left operator
+  for (int r=0; r< r_deim; r++)
+  {
+    for (int i=0; i<d_rf; i++)
 	{
-	  int id = l[i];
-     (*d_b_deim)(i) = vectorized_matrix[id];
-	}
-
-	d_solver_deim->solve(*d_b_deim, *d_x_deim);
-
-	d_Lr = new callow::MatrixDense(d_rf, d_rf);
-
-	double v;
-	// construct the Left operator
-	for (int r=0; r< 3; r++)
+	  for (int j=0; j<d_rf; j++)
 	{
-	  for (int i=0; i<d_rf; i++)
-	  {
-	    for (int j=0; j<d_rf; j++)
-
-	  {
-	    v = (*d_x_deim)[r]*(*M_L[r])(i, j);
-	    d_Lr->insert(i, j, v, 1);
-	  }
-	 }
-	}
-
+	  v = (*d_x_deim)[r]*(*M_L[r])(i, j);
+	  d_Lr->insert(i, j, v, 1);
+  }
+ }
+ }
 }
-
 //----------------------------------------------------------------------------//
 
 void TransientSolver::
 set_multiphysics(SP_multiphysics ic,
                  multiphysics_pointer_rom update_multiphysics_rhs_rom,
+				 SP_matrix U_multiphysics,
                  void* multiphysics_data)
 {
 
@@ -504,8 +513,31 @@ set_multiphysics(SP_multiphysics ic,
   }
   std::cout << d_vec_multiphysics[0]->variable(0)[0] << std::endl;
   std::cout << " ic T=" << d_multiphysics->variable(0)[0] << std::endl;
-}
 
+//  for ( int g=0; g<d_number_groups; g++)
+//  {
+//    SP_matrix TF;
+//    int r1 =  d_rf/d_number_groups;
+//    int r2 = U_multiphysics->number_columns();
+//	TF = new callow::MatrixDense(r2, r1);
+//
+//	for (int g=0; g<d_number_groups; g++)
+//	{
+//	for (int i=0; i<r1; i++)
+//	{
+//	  for (int j=0; j<r2; j++)
+//	  {
+//		double v = 0.0;
+//        for (int cell=0; cell<d_num_cells; cell++)
+//        	{v += (*U_multiphysics)(cell, j)*(*d_flux_basis)(cell+g*d_num_cells, i)*d_material->sigma_f(cell, g);}
+//        TF->insert(j, i, v);
+//	  }
+//	}
+//
+//	Temp_State_basis.push_back(TF);
+//	}
+//  }
+ }
 //----------------------------------------------------------------------------//
 
 void TransientSolver::
@@ -515,7 +547,7 @@ update_multiphysics(const double t, const double dt, const size_t order)
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
   //std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
-  d_update_multiphysics_rhs_rom(d_multiphysics_data, fluxes, t, dt);
+  d_update_multiphysics_rhs_rom(d_multiphysics_data, fluxes, Temp_State_basis, t, dt);
   //std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute
@@ -523,13 +555,14 @@ update_multiphysics(const double t, const double dt, const size_t order)
   for (size_t i = 0; i < d_multiphysics->number_variables(); ++i)
   {
     // Reference to P(n+1)
-    MultiPhysics::vec_dbl &P   = d_multiphysics->variable(i);
+    MultiPhysics::vec_dbl &P = d_multiphysics->variable(i);
 
     //std::cout << " Pold[0]=" << P[0] << std::endl;
     //printf("delP = %18.12e \n", P[0]);
    // printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
 
     // Loop over all elements (usually spatial)
+
     for (int j = 0; j < P.size(); ++j)
     {
       double v = dt * P[j];
@@ -537,7 +570,40 @@ update_multiphysics(const double t, const double dt, const size_t order)
         v += bdf_coefs[order-1][k] * d_vec_multiphysics[k-1]->variable(i)[j];
       P[j] = v / bdf_coefs[order-1][0];
     } // end element loop
+
     std::cout << " Pnew[0]=" << P[0] - 300.0 << std::endl;
   } // end variable loop
 }
 
+//---------------------------------------------------------------------------//
+
+void TransientSolver::set_DEIM(SP_matrix U_deim)
+{
+  deim_flag = true;
+  d_deim_basis = U_deim;
+  r_deim = U_deim->number_columns();
+}
+//---------------------------------------------------------------------------//
+
+bool TransientSolver::check_convergence()
+{
+  // Currently, this implementation only checks convergence
+  // based on successive flux iterates.
+
+  double d_residual_norm = 0.0;
+
+  double v = 0.0;
+
+  for (size_t i = 0; i < d_rf; ++i)
+  {
+     v += std::pow(((*d_sol0_r)[i]-(*d_sol_r)[i])/(*d_sol_r)[i], 2);
+  }
+
+  d_residual_norm = std::sqrt(v);
+
+  if (d_residual_norm < d_tolerance)
+
+    return true;
+  return false;
+
+}

@@ -47,6 +47,8 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady)
   d_physics = new detran::MultiPhysics(1);
   d_physics->variable(0).resize(d_mesh->number_cells(), 300.0);
 
+
+
   initialize_materials();
 }
 
@@ -130,6 +132,8 @@ void LRA::update_impl()
 
   vec_dbl &T = d_physics->variable(0);
 
+  std::cout << T.size() << " size T \n";
+
   for (int i = 0; i < d_mesh->number_cells(); ++i)
   {
     size_t m = d_unique_mesh_map[i];
@@ -210,7 +214,7 @@ void LRA::update_P_and_T(double t, double dt)
 }
 
 //---------------------------------------------------------------------------//
-void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double dt)
+void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, vec_matrix Temp_State_basis, double t, double dt)
 {
 
  // Get fluxes
@@ -219,7 +223,30 @@ void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double d
 
   // Compute power and temperature.  Note, we "unscale" by keff.
   vec_dbl &T = d_physics->variable(0);
+
+  std::cout << T.size() << "\n";
   double F = 0;
+
+  //int r = Temp_State_basis[0]->num_of_columns();
+
+//  callow::Vector v1(10, 0.0);
+//  callow::Vector v2(10, 0.0);
+
+//  for (int g=0; g<2; g++)
+//  {
+//	Temp_State_basis[0]->multiply(fluxes[0], v1);
+//	Temp_State_basis[1]->multiply(fluxes[1], v2);
+//  }
+
+//  std::cout << d_P.size() << "  ^^^^^^^^^^^^^^^^\n";
+//  for (int i=0; i<10; i++)
+//  {
+//    F = v1[i] + v2[i];
+//    d_P[i] = KAPPA * F;
+//    if (t > 0.0)
+//          T[i] = ALPHA * F;
+//  }
+
   for (size_t i = 0; i < d_mesh->number_cells(); ++i)
   {
     F = sigma_f(i, 0) * fluxes[0][i] + sigma_f(i, 1) * fluxes[1][i];
@@ -231,6 +258,36 @@ void LRA::update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double d
    std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * fluxes[0][0] + sigma_f(0, 1) * fluxes[1][0] << std::endl;
 }
 
+
+void LRA::multipysics_reduced(SP_matrix  U)
+{
+
+  std::cout << " multipysics_reduced **********\n";
+
+  std::cout << d_physics->variable(0).size() << " &&&&&\n";
+
+  std::cout << U->number_rows() << " &&&&&\n";
+
+  callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
+
+  for (int i =0; i< d_physics->variable(0).size(); i++)
+  {
+    T_fom[i] = d_physics->variable(0)[i];
+
+  }
+
+  callow::Vector T_rom(U->number_columns(), 0.0);
+
+  U->multiply_transpose(T_fom, T_rom);
+
+  d_physics->variable(0).resize(U->number_columns(), 300.0);
+
+  for (int i=0; i< d_physics->variable(0).size(); i++)
+  {
+    d_physics->variable(0)[i] = T_rom[i];
+  }
+
+}
 
 
 } // end namespace detran_user
