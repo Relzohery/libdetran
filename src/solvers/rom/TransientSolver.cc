@@ -57,6 +57,8 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   // long vector of reduced flux and precursors
   d_sol_r = new callow::Vector(d_rf+d_rc, 0.0);
 
+  d_x0 = new callow::Vector(d_rf+d_rc, 0.0);
+
   d_sol0_r = new callow::Vector(d_rf + d_rc, 0.0);
 
   if (d_inp->check("rom_solver_db"))
@@ -262,7 +264,7 @@ void TransientSolver::Refersh_Operator()
 
   if (deim_flag)
   {
-   online();
+   DEIM_online();
   }
   else
   {
@@ -313,9 +315,10 @@ void TransientSolver::Solve(SP_state initial_state)
 
   d_A_ = new callow::MatrixDense(n, n);
 
+
   if (deim_flag)
   {
-    offline();
+    DEIM_offline();
   }
 
   for (int step=0 ; step< d_number_steps; step++)
@@ -343,10 +346,17 @@ void TransientSolver::Solve(SP_state initial_state)
       }
     }
 
-   size_t iteration = 1;
+
    d_solver->set_operators(d_A_, db);
+
+   size_t iteration = 1;
    for (; iteration <= d_maximum_iterations; ++iteration)
    {
+	  std::cout << iteration << "\n";
+	  for (int i=0; i<n; i++)
+	     {
+	       (*d_x0)[i] = (*d_sol_r)[i];
+	     }
 	  d_solver->solve(*d_sol0_r, *d_sol_r);
 
       bool converged = check_convergence();
@@ -372,7 +382,7 @@ void TransientSolver::Solve(SP_state initial_state)
 
   }
   // temporary ... need to have getter for flux, etc
-  d_flux->print_matlab("flux.txt");
+  d_flux->print_matlab("flux_fine.txt");
   d_precursors->print_matlab("precursors.txt");
 }
 
@@ -433,7 +443,7 @@ void TransientSolver::reconstruct(int step)
 
 //------------------------------------------------------------------------------//
 
-void TransientSolver::offline()
+void TransientSolver::DEIM_offline()
 {
    DEIM D(d_deim_basis, r_deim);
    D.Search();
@@ -446,16 +456,15 @@ void TransientSolver::offline()
 
    M_L = O.Decompositon();
 
-   LinearSolverCreator::SP_db db_deim;
-   db_deim = get_db();
+   //LinearSolverCreator::SP_db db_deim;
 
-   d_solver_deim = LinearSolverCreator::Create(db_deim);
+   d_solver_deim = LinearSolverCreator::Create(db);
 
-   d_solver_deim->set_operators(Ur_deim, db_deim);
+   d_solver_deim->set_operators(Ur_deim, db);
 }
 
 //----------------------------------------------------------------------------//
-void TransientSolver::online()
+void TransientSolver::DEIM_online()
 {
   d_x_deim = new callow::Vector(r_deim, 0.0);
   d_b_deim = new callow::Vector(r_deim, 0.0);
@@ -488,7 +497,7 @@ void TransientSolver::online()
 
 void TransientSolver::
 set_multiphysics(SP_multiphysics ic,
-                 multiphysics_pointer_rom update_multiphysics_rhs_rom,
+                 multiphysics_pointer update_multiphysics_rhs_rom,
 				 SP_matrix U_multiphysics,
                  void* multiphysics_data)
 {
@@ -498,10 +507,8 @@ set_multiphysics(SP_multiphysics ic,
   Require(ic);
   Require(update_multiphysics_rhs_rom);
 
-  std::cout << " ic T=" << ic->variable(0)[0] << std::endl;
-
   d_multiphysics            = ic;
-  d_update_multiphysics_rhs_rom = update_multiphysics_rhs_rom;
+  d_update_multiphysics_rhs = update_multiphysics_rhs_rom;
   d_multiphysics_data       = multiphysics_data;
 
   // Create previous physics states
@@ -511,8 +518,6 @@ set_multiphysics(SP_multiphysics ic,
   {
     d_vec_multiphysics[i] = new MultiPhysics(*ic);
   }
-  std::cout << d_vec_multiphysics[0]->variable(0)[0] << std::endl;
-  std::cout << " ic T=" << d_multiphysics->variable(0)[0] << std::endl;
 
 //  for ( int g=0; g<d_number_groups; g++)
 //  {
@@ -543,11 +548,10 @@ set_multiphysics(SP_multiphysics ic,
 void TransientSolver::
 update_multiphysics(const double t, const double dt, const size_t order)
 {
-  std::cout << "t_eval " << t << "\n";
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
   //std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
-  d_update_multiphysics_rhs_rom(d_multiphysics_data, fluxes, Temp_State_basis, t, dt);
+  d_update_multiphysics_rhs(d_multiphysics_data, fluxes, Temp_State_basis, t, dt);
   //std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute
@@ -556,12 +560,6 @@ update_multiphysics(const double t, const double dt, const size_t order)
   {
     // Reference to P(n+1)
     MultiPhysics::vec_dbl &P = d_multiphysics->variable(i);
-
-    //std::cout << " Pold[0]=" << P[0] << std::endl;
-    //printf("delP = %18.12e \n", P[0]);
-   // printf("Pold[0] = %18.12e \n", d_vec_multiphysics[0]->variable(0)[0]);
-
-    // Loop over all elements (usually spatial)
 
     for (int j = 0; j < P.size(); ++j)
     {
@@ -583,23 +581,22 @@ void TransientSolver::set_DEIM(SP_matrix U_deim)
   d_deim_basis = U_deim;
   r_deim = U_deim->number_columns();
 }
+
 //---------------------------------------------------------------------------//
 
 bool TransientSolver::check_convergence()
 {
-  // Currently, this implementation only checks convergence
-  // based on successive flux iterates.
-
   double d_residual_norm = 0.0;
 
   double v = 0.0;
 
-  for (size_t i = 0; i < d_rf; ++i)
+  for (size_t i = 0; i < d_rf + d_rc; ++i)
   {
-     v += std::pow(((*d_sol0_r)[i]-(*d_sol_r)[i])/(*d_sol_r)[i], 2);
+     v += std::pow(((*d_x0)[i]-(*d_sol_r)[i])/(*d_sol_r)[i], 2);
   }
 
   d_residual_norm = std::sqrt(v);
+  std::cout << " res= " << d_residual_norm << "\n";
 
   if (d_residual_norm < d_tolerance)
 
