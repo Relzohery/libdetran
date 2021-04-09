@@ -28,8 +28,15 @@ offline_stage::offline_stage(SP_matrix A, SP_matrixDense Uf, SP_matrixDense UD, 
    int d_n = A->number_columns();
    int d_m = A->number_rows();
 
- //DEIM D(d_U, d_r);
-//   D.Search();
+   DEIM D(d_U, d_r);
+   D.Search();
+   Ur_deim = D.ReducedBasis();
+   l = D.interpolation_indices();
+
+//   for (int i=0; i<r ; i++)
+//   {
+//	   std::cout << l[i] << "\n";
+//   }
 //   Interpolation_indices = D.interpolation_indices();
 //   Ur_deim = new callow::MatrixDense(d_r, d_r);
 //   Ur_deim = D.ReducedBasis();
@@ -83,6 +90,7 @@ void offline_stage::map_indices()
 {
   DEIM D(d_U, d_r);
   D.Search();
+  Ur_deim = D.ReducedBasis();
   l = D.interpolation_indices();
 
   d_target_rows = new int[d_r];

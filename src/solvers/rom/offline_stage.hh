@@ -29,7 +29,7 @@ class offline_stage
 
 	vec_matrix Decompositon();
 
-	int* Interpolation_indices;
+	int* Interpolation_indices() { return l;};
 	int* target_rows() {return d_target_rows;};
 	int* target_cols() {return d_target_cols;};
 
