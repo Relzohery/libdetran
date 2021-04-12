@@ -13,7 +13,6 @@
 #include "kinetics/SyntheticDiscreteSource.hh"
 #include "kinetics/SyntheticMomentSource.hh"
 #include "utilities/MathUtilities.hh"
-#include "DiffusionLossOperator.hh"
 
 #include <cmath>
 
@@ -174,15 +173,6 @@ TimeStepper<D>::TimeStepper(SP_input       input,
     d_do_output = d_input->template get<int>("ts_output");
     if (d_do_output) d_silooutput = new detran_ioutils::SiloOutput(d_mesh);
   }
-
-  // added by Rabab to train/test the rom
-  flux_mat =  new callow::MatrixDense(d_material->number_groups()*d_mesh->number_cells(), d_number_steps+1);
-  precursors_mat = new callow::MatrixDense(d_material->number_precursor_groups()*d_mesh->number_cells(), d_number_steps+1);
-  power_mat = new callow::MatrixDense(d_mesh->number_cells(), d_number_steps+1);
-  power = new callow::Vector(d_number_steps+1, 0.0);
-  Temperature =  new callow::MatrixDense(d_mesh->number_cells(), d_number_steps+1);
-
-
 }
 
 //---------------------------------------------------------------------------//
@@ -202,13 +192,6 @@ void TimeStepper<D>::add_source(SP_tdsource source)
 template <class D>
 void TimeStepper<D>::solve(SP_state initial_state)
 {
-   // added by RABAB for DEIM  snapshots
-  typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
-  SP_lossoperator d_M;
-  d_M = new DiffusionLossOperator(d_input, d_material, d_mesh, false, 0.0, false, 1.0);
-  //std::cout << d_M->number_nonzeros() << "\n";
-  LossMatrix_snaps = new callow::MatrixDense(d_M->number_nonzeros(), d_number_steps+1);
-
   // Preconditions
   Require(initial_state);
 
@@ -221,28 +204,6 @@ void TimeStepper<D>::solve(SP_state initial_state)
   *d_solver->state() = *d_state;
 
   initialize_precursors();
-
-  int cells = d_mesh->number_cells();
-
-  for (int g=0; g< d_material->number_groups(); g++)
-  {
-    for (int cell=0; cell< d_mesh->number_cells(); cell++)
-    {
-      (*flux_mat)(cell + g*cells, 0) = d_state->phi(g)[cell];
-      vec_int matmap = d_mesh->mesh_map("MATERIAL");
-      int m = matmap[cell];
-      (*power_mat)(cell, 0) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
-      (*power)[0] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
-    }
-  }
-
-  for (int g=0; g< d_material->number_precursor_groups(); g++)
-  {
-    for (int cell=0; cell< d_mesh->number_cells(); cell++)
-    {
-      (*precursors_mat)(cell + g*cells, 0) = d_precursor->C(g)[cell];
-    }
-  }
 
   *d_states[0] = *d_state;
   if (d_precursors.size()) *d_precursors[0] = *d_precursor;
@@ -306,36 +267,6 @@ void TimeStepper<D>::solve(SP_state initial_state)
     // Output the initial state
     if (d_do_output) d_silooutput->write_time_flux(i+1, d_state, true);
 
-    // added by Rabab to train/test the rom
-
-    vec_int matmap = d_mesh->mesh_map("MATERIAL");
-
-    for (int g=0; g< d_material->number_groups(); g++)
-    {
-      for (int cell=0; cell< d_mesh->number_cells(); cell++)
-      {
-        int m = matmap[cell];
-        (*flux_mat)(cell + g*cells, i) = d_state->phi(g)[cell];
-        (*power_mat)(cell, i) += d_state->phi(g)[cell]*d_material->sigma_f(m, g);
-        (*power)[i] += d_state->phi(g)[cell] * d_material->sigma_f(m, g);
-      }
-    }
-
-   for (int g=0; g< d_material->number_precursor_groups(); g++)
-   {
-     for (int cell=0; cell< d_mesh->number_cells(); cell++)
-     {
-       (*precursors_mat)(cell + g*cells, i) = d_precursor->C(g)[cell];
-     }
-   }
-
-
-   for (int cell=0; cell< d_mesh->number_cells(); cell++)
-   {
-     (*Temperature)(cell, i) = d_multiphysics->variable(0)[cell];
-   }
-   //LossMatrix_snaps->print_matlab("lossmatrix_snapshots.txt");
-
   } // end time steps
 }
 
@@ -351,7 +282,6 @@ void TimeStepper<D>::step(const double t,
   // *is* the half step.
   double t_eval = t;
   if (flag) t_eval -= dt;
-  std::cout << "t_eval= "<<  t_eval << "\n";
   // Update the material, sources, and solver
 
   d_material->update(t_eval, dt, order, true);
