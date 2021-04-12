@@ -299,7 +299,8 @@ InputDB::SP_input get_input()
   inp->put<std::string>("bc_north",               "vacuum");
   inp->put<int>("bc_zero_flux",                   0);
   inp->put<double>("ts_final_time",               0.6);
-  inp->put<double>("ts_step_size",                0.001);
+  inp->put<double>("ts_step_size",                0.01);
+  inp->put<int>("ts_max_iters",                   10);
   inp->put<int>("ts_max_steps",                   1000);
   //inp->put<int>("ts_scheme",                      TS_2D::IMP);
   inp->put<int>("ts_output",                      0);
@@ -328,7 +329,7 @@ InputDB::SP_input get_input()
  // db->put<double>("linear_solver_atol",                 1e-13);
  // db->put<double>("linear_solver_rtol",                 1e-13);
   db->put<string>("linear_solver_type",                 "petsc");
- db->put<string>("pc_type",                            "petsc_pc");
+  db->put<string>("pc_type",                            "petsc_pc");
   db->put<string>("petsc_pc_type",                      "lu");
   db->put<int>("linear_solver_maxit",                   1000);
   db->put<int>("linear_solver_gmres_restart",           30);
@@ -345,6 +346,18 @@ InputDB::SP_input get_input()
 	inp->put<int>("ts_discrete",              1);
 	inp->put<int>("store_angular_flux",       1);
   }
+
+  InputDB::SP_input db_deim(new InputDB("deim_db"));
+   db_deim->put<double>("linear_solver_atol",              0.0);
+   db_deim->put<double>("linear_solver_rtol",              1e-16);
+   db_deim->put<string>("linear_solver_type",              "gmres");
+   db_deim->put<string>("petsc_pc_type",                    "lu");
+   db_deim->put<int>("linear_solver_maxit",             1000);
+   db_deim->put<int>("linear_solver_gmres_restart",     30);
+   db_deim->put<int>("linear_solver_monitor_level",     0);
+   //db_deim->put<string>("pc_type",                         "petsc_pc");
+
+   inp->put<InputDB::SP_input>("deim_db",   db_deim);
 
 
   return inp;
@@ -507,7 +520,7 @@ int test_TWIGL_ROM(int argc, char *argv[])
    ProfilerStart("test_TWIGL_rom.prof");
    time_t begin, end;
    time(&begin);
-   TransientSolver R(inp, mesh, mat, basis_f, basis_p, basis_p, false);
+   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
    R.Solve(ic);
 
   ProfilerStop();
@@ -592,7 +605,8 @@ int test_TWIGL_DEIM(int argc, char *argv[])
   ProfilerStart("test_TWIGL_deim.prof");
   time_t begin, end;
   time(&begin);
-  TransientSolver R(inp, mesh, mat, basis_f, basis_p,  basis_deim, true);
+  TransientSolver R(inp, mesh, mat, basis_f, basis_p);
+  R.set_DEIM(basis_deim);
   R.Solve(ic);
   ProfilerStop();
   time(&end);
