@@ -162,6 +162,8 @@ private:
   SP_vector d_x_deim;
   /// selected elements of the vectorized matrix
   SP_vector d_b_deim;
+  /// power
+  SP_vector d_power;
   /// DEIM interpolation indices
   int* l;
   ///
@@ -178,6 +180,8 @@ private:
   int d_rf;
   /// Precursors rank
   int d_rc;
+
+  int d_n;
   /// deim rank
   int r_deim;
   /// Linear solver
@@ -210,6 +214,8 @@ private:
   SP_multiphysics d_multiphysics_0;
 
   vec_matrix Temp_State_basis;
+
+  void step(int, double);
 
   /// DEIM offline stage
   void DEIM_offline();
