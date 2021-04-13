@@ -371,14 +371,11 @@ void TransientSolver::Solve(SP_state initial_state)
 
   for (int step_no=0; step_no< d_number_steps; step_no++)
   {
-	t += d_dt;
-    std::cout << "********** step  = " << step_no << "  time = " << t << " ************\n ";
+    t += d_dt;
 
     size_t iteration = 1;
     for (; iteration <= d_maximum_iterations; ++iteration)
     {
-      std:: cout << "iteration " << iteration << "  " << t << "\n";
-
       step(step_no, t);
 
       bool converged = check_convergence();
@@ -568,7 +565,8 @@ update_multiphysics(const double t, const double dt, const size_t order)
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
   std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
-  d_update_multiphysics_rhs(d_multiphysics_data, fluxes, Temp_State_basis, t, dt);
+   // for now, I will pass the fluxes but later it has to be only the coefficients.
+  d_update_multiphysics_rhs(d_multiphysics_data, fluxes, t, dt);
   std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute

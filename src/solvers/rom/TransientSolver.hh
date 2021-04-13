@@ -58,7 +58,7 @@ public:
   typedef std::vector<callow::Vector>               vec_flux;
 
   typedef void (*multiphysics_pointer)
-                (void*, vec_flux fluxes, vec_matrix TEMP_State_basis, double, double);
+                (void*, vec_flux fluxes, double, double);
   typedef std::vector<SP_multiphysics>              vec_multiphysics;
 
 
