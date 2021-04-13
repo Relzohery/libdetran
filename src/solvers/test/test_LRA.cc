@@ -302,29 +302,10 @@ int test_LRA(int argc, char *argv[])
 
   stepper.solve(ic);
 
-
-
   printf(" %20.16f %20.16f ", ic->phi(0)[0], ic->phi(0)[1]);
   std::cout << std::endl;
 
   State::SP_state final = stepper.state();
-  SP_matrix phi_mat;
-  SP_matrix precursors_mat;
-  SP_matrix power_mat;
-  SP_vector power;
-  SP_matrix Temperature;
-
-  phi_mat = stepper.flux_mat;
-  precursors_mat = stepper.precursors_mat;
-  power_mat = stepper.power_mat;
-  power = stepper.power;
-  Temperature = stepper.Temperature;
-
-  phi_mat->print_matlab("lra_flux_fine.txt");
-  precursors_mat->print_matlab("lra_precursors_fine.txt");
-  power_mat->print_matlab("lra_spatail_power_fine.txt");
-  power->print_matlab("lra_power_fine.txt");
-  Temperature->print_matlab("lra_temperature_fine.txt");
 
   printf(" %20.16f %20.16f ", final->phi(0)[0], final->phi(0)[1]);
   std::cout << std::endl;
