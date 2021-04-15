@@ -210,7 +210,7 @@ void LRA::update_P_and_T(double t, double dt)
 }
 
 //---------------------------------------------------------------------------//
-void LRA::update_P_and_T(flux_vec fluxes, double t, double dt)
+void LRA::update_P_and_T(SP_vector phi, double t, double dt)
 {
   // Compute power and temperature.  Note, we "unscale" by keff.
   vec_dbl &T = d_physics->variable(0);
@@ -219,13 +219,13 @@ void LRA::update_P_and_T(flux_vec fluxes, double t, double dt)
 
   for (size_t i = 0; i < d_mesh->number_cells(); ++i)
   {
-    F = sigma_f(i, 0) * fluxes[0][i] + sigma_f(i, 1) * fluxes[1][i];
+    F = sigma_f(i, 0) * (*phi)[i] + sigma_f(i, 1) * (*phi)[i + d_mesh->number_cells()];
 
     d_P[i] = KAPPA * F;
     if (t > 0.0)
       T[i] = ALPHA * F;
   }
-   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * fluxes[0][0] + sigma_f(0, 1) * fluxes[1][0] << std::endl;
+   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * (*phi)[0] + sigma_f(0, 1) * (*phi)[d_mesh->number_cells()] << std::endl;
 }
 
 
