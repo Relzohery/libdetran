@@ -39,7 +39,7 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   d_number_steps = std::ceil(d_final_time / d_dt);
 
   d_P0 = new callow::Vector (d_num_cells* d_precursors_group, 0.0);
-  d_phi0 = new callow::Vector(d_num_cells* d_number_groups, 0.0);
+  d_phi = new callow::Vector(d_num_cells* d_number_groups, 0.0);
 
   d_phi0_r = new callow::Vector(d_rf, 0.0);
   d_P0_r = new callow::Vector (d_rc, 0.0);
@@ -110,7 +110,7 @@ void TransientSolver::ProjectInitial()
   {
     for (int cell=0; cell<d_num_cells; cell++)
     {
-      (*d_phi0)[cell + g*d_num_cells] = d_state->phi(g)[cell];
+      (*d_phi)[cell + g*d_num_cells] = d_state->phi(g)[cell];
       //store the initial flux
       (*d_flux)(cell + g*d_num_cells, 0) = d_state->phi(g)[cell];
     }
@@ -125,7 +125,7 @@ void TransientSolver::ProjectInitial()
     	             d_state->phi(1)[cell]*d_material->sigma_f(m, 1) ;
   }
 
-  d_flux_basis->multiply_transpose(*d_phi0, *d_phi0_r);
+  d_flux_basis->multiply_transpose(*d_phi, *d_phi0_r);
 
   // project initial precursors
   d_precursors_basis->multiply_transpose(*d_P0, *d_P0_r);
@@ -400,7 +400,6 @@ void TransientSolver::Solve(SP_state initial_state)
 
 void TransientSolver::reconstruct(int step)
 {
-  callow::Vector phi(d_number_groups*d_num_cells, 0.0);
   callow::Vector C(d_precursors_group*d_num_cells, 0.0);
 
   callow::Vector v1(d_rf, 0.0);
@@ -410,7 +409,7 @@ void TransientSolver::reconstruct(int step)
   {
     v1[f] = (*d_sol_r)(f);
   }
-  d_flux_basis->multiply(v1, phi);
+  d_flux_basis->multiply(v1, *d_phi);
 
   for (int p=0; p<d_rc; p++)
   {
@@ -418,16 +417,15 @@ void TransientSolver::reconstruct(int step)
   }
 
   d_precursors_basis->multiply(v2, C);
-  double *phi_ = &phi[0];
+  double *phi = &(*d_phi)[0];
   double *C_ = &C[0];
 
-  d_flux->insert_col(step+1, phi_, 0);
+  d_flux->insert_col(step+1, phi, 0);
   d_precursors->insert_col(step+1, C_, 0);
 
   const vec_int &mat_map = d_mesh->mesh_map("MATERIAL");
   int m;
 
-  fluxes.clear();
   int rg = d_rf/d_number_groups;
 
   //  for (int g=0; g<d_number_groups; g++)
@@ -440,19 +438,6 @@ void TransientSolver::reconstruct(int step)
   //
 //    fluxes.push_back(phi_g);
 //  }
-
-  for (int g=0; g<d_number_groups; g++)
-  {
-    callow::Vector phi_g(d_num_cells, 0.0);
-    for (int i=0; i<d_num_cells; i++)
-    {
-      m = mat_map[i];
-      phi_g[i] = phi_[d_num_cells*g + i];
-      (*d_power)[step+1] += phi_[d_num_cells*g + i]*d_material->sigma_f(m, g);
-    }
-      fluxes.push_back(phi_g);
-  }
-
 }
 
 //------------------------------------------------------------------------------//
@@ -566,7 +551,7 @@ update_multiphysics(const double t, const double dt, const size_t order)
   // the working vector d_multiphysics
   std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
    // for now, I will pass the fluxes but later it has to be only the coefficients.
-  d_update_multiphysics_rhs(d_multiphysics_data, fluxes, t, dt);
+  d_update_multiphysics_rhs(d_multiphysics_data, d_phi, t, dt);
   std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute

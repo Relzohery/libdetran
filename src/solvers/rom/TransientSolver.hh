@@ -58,7 +58,7 @@ public:
   typedef std::vector<callow::Vector>               vec_flux;
 
   typedef void (*multiphysics_pointer)
-                (void*, vec_flux fluxes, double, double);
+                (void*, SP_vector , double, double);
   typedef std::vector<SP_multiphysics>              vec_multiphysics;
 
 
@@ -136,9 +136,7 @@ private:
   SP_matrix d_deim_basis;
   /// Precursor vector in previous time step
   SP_vector d_P0;
-  /// Flux vector in previous time step
-  SP_vector d_phi0;
-  /// Precursor vector in current time step
+  /// Flux vector
   SP_vector d_phi;
   /// Current vector of the reduced flux and precursors
   SP_vector d_sol_r;
