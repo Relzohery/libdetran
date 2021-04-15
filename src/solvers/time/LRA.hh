@@ -62,6 +62,8 @@ public:
   typedef detran_geometry::Mesh::SP_mesh            SP_mesh;
   typedef detran::MultiPhysics::SP_multiphysics     SP_multiphysics;
   typedef std::vector<callow::Vector>               flux_vec;
+  typedef callow::Vector::SP_vector                 SP_vector;
+
 
   //-------------------------------------------------------------------------//
   // CONSTRUCTOR & DESTRUCTOR
@@ -83,7 +85,7 @@ public:
   void set_state(SP_state);
   void initialize_materials();
   void update_P_and_T(double t, double dt);
-  void update_P_and_T(std::vector<callow::Vector>  fluxes, double t, double dt);
+  void update_P_and_T(SP_vector phi, double t, double dt);
   vec_dbl T() {return d_T;}
   vec_dbl P() {return d_P;}
   SP_multiphysics physics() {return d_physics;}
@@ -160,7 +162,7 @@ void update_T_rhs(void* data,
 //---------------------------------------------------------------------------//
 template <class D>
 void update_T_rhs(void* data,
-		          std::vector<callow::Vector> fluxes, double t,
+		          callow::Vector::SP_vector phi, double t,
                   double dt)
 {
   Require(data);
@@ -168,10 +170,8 @@ void update_T_rhs(void* data,
   // cast data as LRA
   LRA* mat = (LRA*) data;
 
-//  std::cout << mat->physics()->variable(0)[0] << " "
-//            << step->multiphysics()->variable(0)[0] << std::endl;
   // update
-  mat->update_P_and_T(fluxes, t, dt);
+  mat->update_P_and_T(phi, t, dt);
 }
 } // end namespace detran_user
 
