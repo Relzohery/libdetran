@@ -25,7 +25,6 @@
 #include "Mesh2D.hh"
 #include "DEIM.hh"
 #include "offline_stage.hh"
-#include <random>
 #include <iostream>
 #include <fstream>
 
@@ -70,7 +69,6 @@ double** get_samples(unsigned m, unsigned n)
 	  std::cout<< data[i][j]<<std::endl;
 	}
   }
-
  return data;
 }
 
@@ -99,7 +97,7 @@ InputDB::SP_input get_input()
    inp->put<int>("outer_print_level",          0);
    //inp->put<std::string>("eigen_solver",       "arnoldi");
    inp->put<int>("eigen_max_iters",            200);
-   inp->put<double>("eigen_tolerance",            1e-7);
+   inp->put<double>("eigen_solver_tol",            1e-14);
    inp->put<int>("quad_number_polar_octant",   16);
 
     InputDB::SP_input db(new InputDB("callow dp"));
@@ -118,6 +116,7 @@ InputDB::SP_input get_input()
     inp->put<InputDB::SP_input>("inner_pc_db",                   db);
     inp->put<InputDB::SP_input>("outer_solver_db",               db);
     inp->put<InputDB::SP_input>("eigen_solver_db",               db);
+    inp->put<InputDB::SP_input>("rom_solver_db",                 db);
 
    return inp;
 
@@ -125,26 +124,6 @@ InputDB::SP_input get_input()
 
 Material::SP_material get_mat(double* xs)
 {
-
-
-// std::random_device rd;  //Will be used to obtain a seed for the random number engine
-// std::mt19937 generator(rd()); //Standard mersenne_twister_engine seeded with rd()
-// std::uniform_real_distribution<double> distribution(0.0,1.0);
-//
-// double number = distribution(generator)/100;
-
-  //double xs[] ={0.030120, 0.080032,  0.130032, 0.02, 0.04,  1.5, 0.4, 2, 0.3,  0.135, 0.040160, 0.010024, 0.085032};
-
-//  if (perturb)
-//  {
-//	for (int i=0; i<13; i++)
-//	{
-//	  number = distribution(generator)/100;
-//	  xs[i] += xs[i]*number;
-//	}
-//  }
-
-
   Material::SP_material mat = Material::Create(4, 2, "IAEA_2D");
   // Material 0
 
@@ -158,38 +137,38 @@ Material::SP_material get_mat(double* xs)
   mat->set_chi(0, 0, 1.0);
   mat->compute_sigma_a();
 
- //mat.set_diff_coef(0, vec_dbl([1.5, 0.4]))
+  //mat.set_diff_coef(0, vec_dbl([1.5, 0.4]))
 
- //Material 1
- mat->set_sigma_t(1, 0, xs[0]);
- mat->set_sigma_t(1, 1, xs[12]);
- mat->set_sigma_s(1, 1, 0, xs[3]);
- mat->set_sigma_f(1, 1, xs[9]);
- mat->set_diff_coef(1, 0, xs[5]);
- mat->set_diff_coef(1, 1, xs[6]);
- mat->set_chi(1, 0, 1.0);
- mat->compute_sigma_a();
+  //Material 1
+  mat->set_sigma_t(1, 0, xs[0]);
+  mat->set_sigma_t(1, 1, xs[12]);
+  mat->set_sigma_s(1, 1, 0, xs[3]);
+  mat->set_sigma_f(1, 1, xs[9]);
+  mat->set_diff_coef(1, 0, xs[5]);
+  mat->set_diff_coef(1, 1, xs[6]);
+  mat->set_chi(1, 0, 1.0);
+  mat->compute_sigma_a();
 
- // Material 2
- mat->set_sigma_t(2, 0, xs[0]);
- mat->set_sigma_t(2, 1, xs[2]);
- mat->set_sigma_s(2, 1, 0, xs[3]);
- mat->set_sigma_f(2, 1,  xs[9]);
- mat->set_diff_coef(2, 0, xs[5]);
- mat->set_diff_coef(2, 1, xs[6]);
- mat->set_chi(2, 0, 1.0);
- mat->compute_sigma_a();
+  // Material 2
+  mat->set_sigma_t(2, 0, xs[0]);
+  mat->set_sigma_t(2, 1, xs[2]);
+  mat->set_sigma_s(2, 1, 0, xs[3]);
+  mat->set_sigma_f(2, 1,  xs[9]);
+  mat->set_diff_coef(2, 0, xs[5]);
+  mat->set_diff_coef(2, 1, xs[6]);
+  mat->set_chi(2, 0, 1.0);
+  mat->compute_sigma_a();
 
-// Material 3
- mat->set_sigma_t(3, 0, xs[10]);
- mat->set_sigma_t(3, 1, xs[11]);
- mat->set_sigma_s(3, 1, 0, xs[4]);
- mat->set_diff_coef(3, 0, xs[7] );
- mat->set_diff_coef(3, 1, xs[8]);
- mat->set_chi(3, 0, 1.0);
- mat->compute_sigma_a();
- mat->finalize();
- //mat->display();
+  // Material 3
+  mat->set_sigma_t(3, 0, xs[10]);
+  mat->set_sigma_t(3, 1, xs[11]);
+  mat->set_sigma_s(3, 1, 0, xs[4]);
+  mat->set_diff_coef(3, 0, xs[7] );
+  mat->set_diff_coef(3, 1, xs[8]);
+  mat->set_chi(3, 0, 1.0);
+  mat->compute_sigma_a();
+  mat->finalize();
+  //mat->display();
 
  return mat;
 }
@@ -216,10 +195,10 @@ Mesh2D::SP_mesh get_mesh(int fmm = 1, std::string id="core")
 		           1, 1, 1, 1, 1, 1, 0, 0, 3,
 		           1, 1, 1, 1, 1, 1, 0, 3, 3,
 		           2, 1, 1, 1, 2, 0, 0, 3, 3,
-		       1, 1, 1, 1, 0, 0, 3, 3, 3,
-		       1, 1, 0, 0, 0, 3, 3, 3, 3,
-		       0, 0, 0, 3, 3, 3, 3, 3, 3,
-		       3, 3, 3, 3, 3, 3, 3, 3, 3};
+		           1, 1, 1, 1, 0, 0, 3, 3, 3,
+		           1, 1, 0, 0, 0, 3, 3, 3, 3,
+		           0, 0, 0, 3, 3, 3, 3, 3, 3,
+		           3, 3, 3, 3, 3, 3, 3, 3, 3};
 
   Mesh2D::vec_int mt(9*9);
     for (int i = 0; i < 81; ++i) mt[i] = mt_map[i];
@@ -232,6 +211,8 @@ Mesh2D::SP_mesh get_mesh(int fmm = 1, std::string id="core")
 
 return mesh;
 }
+
+//--------------------------------------------------------------------------//
 
 int test_IAEA2D(int argc, char *argv[])
 {
@@ -247,6 +228,10 @@ int test_IAEA2D(int argc, char *argv[])
 
   Mesh2D::SP_mesh mesh = get_mesh();
 
+  MatrixDense phi_0(mesh->number_cells(), 100);
+  MatrixDense phi_1(mesh->number_cells(), 100);
+  Vector k(100);
+
   double** data = get_samples(100, 13);
   for (int i=0; i<100; i++)
   {
@@ -254,7 +239,29 @@ int test_IAEA2D(int argc, char *argv[])
     EigenvalueManager<_2D> manager(inp, mat, mesh);
     manager.solve();
     State::SP_state ic = manager.state();
+
+    std::cout << manager.state()->phi(0).size() << "\n";
+
+    double* a ;
+	double* b;
+    a = new double [manager.state()->phi(0).size()];
+    b = new double [manager.state()->phi(1).size()];
+
+    for (int i=0; i< 8100; i++)
+    {
+      a[i] = manager.state()->phi(0)[i];
+      b[i] = manager.state()->phi(1)[i];
+    }
+    phi_0.insert_col(i, a);
+    phi_1.insert_col(i, b);
+    k[i] = manager.state()->eigenvalue();
+
   }
+
+  phi_0.print_matlab("IAEA_FOM_flux0.txt");
+  phi_1.print_matlab("IAEA_FOM_flux1.txt");
+  k.print_matlab("IAEA_FOM_eigenvalue.txt");
+
   return 0;
 }
 
@@ -271,32 +278,42 @@ int test_IAEA2D_ROM(int argc, char *argv[])
   inp->get<std::string>("equation") = "diffusion";
   inp->put<std::string>("operator", "diffusion");
 
-
-
-
   Mesh2D::SP_mesh mesh = get_mesh();
 
-  int r = 15;
+  int r = 50;
   int n = mesh->number_cells();
   // get the basis
   SP_matrix U;
   U = new callow::MatrixDense(2*n, 2*r);
 
-  ROMBasis::GetBasis("../../../source/src/solvers/test/rom_basis/IAEA2D_flux_basis_r=15", U);
+  ROMBasis::GetBasis("../../../source/src/solvers/test/rom_basis/IAEA2D_flux_basis_r=50", U);
 
-   // ROM
+  MatrixDense phi_0(2*mesh->number_cells(), 100);
+  Vector k(100);
+
+  // ROM
   double** data = get_samples(100, 13);
-   for (int i=0; i<100; i++)
-   {
-	;
-	 Material::SP_material mat = get_mat(data[i]);
-     ROMSolver<_2D> ROM(inp, mesh, mat);
-     SP_vector  ROM_flux;
-     ROM_flux = new callow::Vector(2*n, 0.0);
-     ROM.Solve(U, ROM_flux);
-     double keff_rom = ROM.keff();
-     std::cout << keff_rom << " ***\n";
+  for (int i=0; i<100; i++)
+  {
+    Material::SP_material mat = get_mat(data[i]);
+
+    ROMSolver<_2D> ROM(inp, mesh, mat);
+    SP_vector  ROM_flux;
+    ROM_flux = new callow::Vector(2*n, 0.0);
+    ROM.Solve(U, ROM_flux);
+    double keff_rom = ROM.keff();
+
+    double* flux = &(*ROM_flux)[0];
+    phi_0.insert_col(i, flux);
+    k[i] = keff_rom;
+
+    std::cout << "ROM k_eff= " << keff_rom << "\n";
    }
+
+  phi_0.print_matlab("IAEA_ROM_flux.txt");
+  k.print_matlab("IAEA_ROM_eigenvalue.txt");
+
+ return 0;
 }
 
 
@@ -333,9 +350,6 @@ int test_DEIM_snapshots(int argc, char *argv[])
     L_snapshots->insert_col(i, A->values());
 
     F_snapshots->insert_col(i, B->values());
-
-	//std::cout << d_M->number_nonzeros() << "\n";
-	//LossMatrix_snaps = new callow::MatrixDense(d_M->number_nonzeros(), d_number_steps+1);
  }
 
   L_snapshots->print_matlab("L_snapshots.txt");
@@ -347,7 +361,6 @@ return 0;
 int test_IAEA_DEIM(int argc, char *argv[])
 
 {
-  std::cout << "testing IAED DEIM  *************\n";
   typedef DiffusionLossOperator::SP_lossoperator    SP_lossoperator;
   typedef detran::DiffusionGainOperator::SP_gainoperator    SP_gainoperator;
   typedef callow::MatrixDense::SP_matrix            SP_matrix;
@@ -357,7 +370,8 @@ int test_IAEA_DEIM(int argc, char *argv[])
   typedef callow::EigenSolver::SP_solver            SP_eigensolver;
   typedef callow::EigenSolverCreator                Creator_T;
 
-  double xs[] ={0.030120, 0.080032,  0.130032, 0.02, 0.04,  1.5, 0.4, 2, 0.3,  0.135, 0.040160, 0.010024, 0.085032};
+  double xs[] = {0.030120, 0.080032,  0.130032, 0.02, 0.04, 1.5,
+		         0.4, 2, 0.3,  0.135, 0.040160, 0.010024, 0.085032};
 
 
   InputDB::SP_input inp = get_input();
@@ -372,9 +386,7 @@ int test_IAEA_DEIM(int argc, char *argv[])
 
   int rL = 15;
   int rF = 5;
-  int r = 15;
-
-  std::cout << "reading basis*************\n";
+  int r = 50;
 
   SP_matrix UL;
   UL = new callow::MatrixDense(A->number_nonzeros(), rL);
@@ -386,9 +398,7 @@ int test_IAEA_DEIM(int argc, char *argv[])
 
   SP_matrix U;
   U = new callow::MatrixDense(2*n, 2*r);
-  ROMBasis::GetBasis("../../../source/src/solvers/test/rom_basis/IAEA2D_flux_basis_r=15", U);
-  std::cout << "read basis  *************\n";
-
+  ROMBasis::GetBasis("../../../source/src/solvers/test/rom_basis/IAEA2D_flux_basis_r=50", U);
 
   offline_stage O(A, U, UL, rL);
   vec_matrix M_L;
@@ -417,35 +427,20 @@ int test_IAEA_DEIM(int argc, char *argv[])
   SP_vector  ROM_flux;
   ROM_flux = new callow::Vector(2*n, 0.0);
 
-  std::cout << " reading sample *************\n";
+  MatrixDense phi(2*mesh->number_cells(), 100);
+  Vector k_eff(100);
+
   double** data = get_samples(100, 13);
-  std::cout << " read sample *************\n";
+
   for (int sample=0; sample < 100; sample++)
   {
 	std::cout << "sample =  " << sample << "\n";
-    // online, solve for the coefficient, compute the reduced mats , solve the eigenvalue
+
+    std::cout << "************** DEIM ****************\n";
+
     Material::SP_material mat = get_mat(data[sample]);
-
-
-    EigenvalueManager<_2D> manager(inp, mat, mesh);
-    manager.solve();
-
-    std::cout << "************** ROM ****************\n";
-    // ROM
-    inp->put<std::string>("operator", "diffusion");
-    ROMSolver<_2D> ROM(inp, mesh, mat);
-    SP_vector  ROM_flux;
-    ROM_flux = new callow::Vector(2*n, 0.0);
-    ROM.Solve(U, ROM_flux);
-    double keff_rom = ROM.keff();
-    std::cout << keff_rom << " ***\n";
-
-   std::cout << "************** DEIM ****************\n";
-
     SP_lossoperator A (new DiffusionLossOperator(inp, mat, mesh, false, 0.0, false, 1.0, false));
     SP_gainoperator B (new DiffusionGainOperator(inp, mat, mesh, false));
-
-    A->print_matlab("A_loss.txt");
 
     double* vectorized_L = A->values();
     double* vectorized_F = B->values();
@@ -458,8 +453,8 @@ int test_IAEA_DEIM(int argc, char *argv[])
     {
       if (vectorized_F[i] !=0)
       {
-    	  vectorized_F_nnz[h] = vectorized_F[i];
-    	  h += 1;
+        vectorized_F_nnz[h] = vectorized_F[i];
+    	h += 1;
       }
     }
 
@@ -483,9 +478,6 @@ int test_IAEA_DEIM(int argc, char *argv[])
     }
 
     solver_L->solve(*b_L, *x_L);
-
-    b_L->print_matlab("b_L.txt");
-    Udeim_L->print_matlab("Udeim_L.txt");
 
     for (int i=0; i<rF; i++)
     {
@@ -523,12 +515,10 @@ int test_IAEA_DEIM(int argc, char *argv[])
         {
           v = (*x_F)[k]*(*M_F[k])(i, j);
           Fr->insert(i, j, v, 1);
-         }
         }
-       }
+      }
+    }
 
-    Fr->print_matlab("Fr.txt");
-    Lr->print_matlab("Lr.txt");
     // solve the eigenvalue problem
 
     eigensolver->set_operators(Fr, Lr);
@@ -539,18 +529,22 @@ int test_IAEA_DEIM(int argc, char *argv[])
     x = new Vector(2*r, 1.0);
     eigensolver->solve(x_rom, x);
 
-     double keff =  eigensolver->eigenvalue();
-     std::cout << keff << "\n";
+    double keff =  eigensolver->eigenvalue();
 
-      // reconstruct
+    k_eff[sample] = keff;
+
+    // reconstruct
     int d_n = U->number_rows();
 
-     U->multiply(*x_rom, *ROM_flux);
+    U->multiply(*x_rom, *ROM_flux);
 
+    double* a = &(*ROM_flux)[0];
 
+    phi.insert_col(sample, a);
   }
 
-
+  phi.print_matlab("IAEA_DEIM_flux.txt");
+  k_eff.print_matlab("IAEA_DEIM_eigenvalue.txt");
 
   return 0;
 
