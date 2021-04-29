@@ -336,7 +336,6 @@ void TransientSolver::step(int step, double t)
   if (d_multiphysics)
   {
     update_multiphysics(t, d_dt, 1);
-	*d_vec_multiphysics[0] = *d_multiphysics;
   }
 }
 
@@ -388,12 +387,14 @@ void TransientSolver::Solve(SP_state initial_state)
     {
       (*d_sol0_r)[i] = (*d_sol_r)[i];
     }
+
+    if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
  }
 
  // temporary ... need to have getter for flux, etc
- d_flux->print_matlab("flux_01_iteration.txt");
- //d_precursors->print_matlab("precursors.txt");
- d_power->print_matlab("power_001_iteration.txt");
+ d_flux->print_matlab("lra_rom_flux.txt");
+ d_precursors->print_matlab("lra_rom_precursors.txt");
+ d_power->print_matlab("lra_rom_power.txt");
 }
 
 //------------------------------------------------------------------------------------//
@@ -459,7 +460,7 @@ void TransientSolver::DEIM_offline()
 
    d_solver_deim = LinearSolverCreator::Create(db);
 
-   d_solver_deim->set_operators(Ur_deim, d_inp->template get<SP_input>("deim_db"));
+   d_solver_deim->set_operators(Ur_deim, d_inp->template get<SP_input>("inner_solver_db"));
 }
 
 //----------------------------------------------------------------------------//
