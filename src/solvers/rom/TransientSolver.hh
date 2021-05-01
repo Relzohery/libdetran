@@ -66,8 +66,6 @@ public:
 
   void Solve(SP_state initial_state);
 
-
-
   /// set DEIM basis
   void set_DEIM(SP_matrix U_deim);
 
@@ -75,9 +73,13 @@ public:
                       multiphysics_pointer update_multiphysics_rhs,
 					  SP_matrix Temp_State_basis,
                       void* multiphysics_data = NULL);
+  /// flux getter
+  SP_matrix flux() {return d_flux;};
+  /// precursors getter
+  SP_matrix precursors() {return d_precursors;};
+  /// power getter
+  SP_vector power() {return d_power;};
 
-  /// vector of group fluxes
-  std::vector<callow::Vector>  fluxes;
 
 private:
   /// State vector
@@ -200,15 +202,15 @@ private:
   void Refersh_Operator();
   /// Reconstruct the full order solution
   void reconstruct(int i);
-
+  /// Working multiphysics vector
   SP_multiphysics d_multiphysics;
-
+  /// Multiphysics callback
   multiphysics_pointer d_update_multiphysics_rhs;
-
+  /// Multiphysics data
   void* d_multiphysics_data;
-
+  /// Vector of previous physics iterates
   vec_multiphysics d_vec_multiphysics;
-
+  /// Previous multiphysics iterate
   SP_multiphysics d_multiphysics_0;
 
   vec_matrix Temp_State_basis;
@@ -220,9 +222,9 @@ private:
 
   /// DEIM online stage
   void DEIM_online();
-
+  /// update multiphysics at time step
   void update_multiphysics(const double t, const double dt, const size_t order);
-
+  /// check flux convergence at each iteration
   bool check_convergence();
 
 

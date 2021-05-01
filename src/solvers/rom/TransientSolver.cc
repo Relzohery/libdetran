@@ -375,6 +375,7 @@ void TransientSolver::Solve(SP_state initial_state)
     size_t iteration = 1;
     for (; iteration <= d_maximum_iterations; ++iteration)
     {
+      std::cout << "step = " << step_no << " " << "iteration= " << iteration << "\n";
       step(step_no, t);
 
       bool converged = check_convergence();
@@ -391,10 +392,6 @@ void TransientSolver::Solve(SP_state initial_state)
     if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
  }
 
- // temporary ... need to have getter for flux, etc
- d_flux->print_matlab("lra_rom_flux.txt");
- d_precursors->print_matlab("lra_rom_precursors.txt");
- d_power->print_matlab("lra_rom_power.txt");
 }
 
 //------------------------------------------------------------------------------------//
@@ -451,7 +448,6 @@ void TransientSolver::DEIM_offline()
    Ur_deim = new callow::MatrixDense(r_deim, r_deim);
    Ur_deim = D.ReducedBasis();
 
-   Ur_deim->print_matlab("U_deim.txt");
    offline_stage O(d_L, d_flux_basis, d_deim_basis, r_deim);
 
    M_L = O.Decompositon();
