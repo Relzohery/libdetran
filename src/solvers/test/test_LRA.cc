@@ -368,19 +368,19 @@ int test_LRA_ROM(int argc, char *argv[])
   // TIME STEPPER
   //-------------------------------------------------------------------------//
 
-  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_basis_fine";
-  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_fine";
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
   const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
-
-  int r = 40;
+  int rc = 30;
+  int rf = 50;
   int n = 484;
 
   SP_matrix basis_f;
-  basis_f = new callow::MatrixDense(n*2, 2*r);
+  basis_f = new callow::MatrixDense(n*2, 2*rf);
   ROMBasis::GetBasis(flux_basis, basis_f);
 
   SP_matrix basis_p;
-  basis_p = new callow::MatrixDense(n*2, r);
+  basis_p = new callow::MatrixDense(n*2, rc);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
   SP_matrix basis_T;
