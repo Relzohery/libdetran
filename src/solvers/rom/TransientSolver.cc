@@ -53,7 +53,7 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   // long vector of reduced flux and precursors
   d_sol_r = new callow::Vector(d_rf+d_rc, 0.0);
 
-  d_x0 = new callow::Vector(d_rf+d_rc, 0.0);
+  d_x0 = new callow::Vector(d_rf, 0.0);
 
   d_sol0_r = new callow::Vector(d_rf + d_rc, 0.0);
 
@@ -323,7 +323,7 @@ void TransientSolver::step(int step, double t)
   d_solver->set_operators(d_A_, db);
 
   // store previous iteration
-  for (int i=0; i<d_n; i++)
+  for (int i=0; i<d_rf; i++)
   {
     (*d_x0)[i] = (*d_sol_r)[i];
   }
