@@ -585,14 +585,15 @@ bool TransientSolver::check_convergence()
 {
   double d_residual_norm = 0.0;
 
-  double v = 0.0;
-
+  double num = 0.0;
+  double dum = 0.0;
   for (size_t i = 0; i < d_rf; ++i)
   {
-     v += std::pow(((*d_x0)[i] - (*d_sol_r)[i])/(*d_sol_r)[i], 2);
+     num += std::pow((*d_x0)[i] - (*d_sol_r)[i], 2);
+     dum +=  std::pow((*d_sol_r)[i], 2);
   }
 
-  d_residual_norm = std::sqrt(v);
+  d_residual_norm = std::sqrt(num)/std::sqrt(dum);
   std::cout << " res= " << d_residual_norm << "\n";
 
   if (d_residual_norm < d_tolerance)
