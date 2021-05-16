@@ -335,7 +335,7 @@ void TransientSolver::step(int step, double t)
 
   if (d_multiphysics)
   {
-    update_multiphysics(t, d_dt, 1);
+    update_multiphysics(t, d_dt, 1, Temp_State_basis, multiphysics_basis);
   }
 }
 
@@ -343,6 +343,9 @@ void TransientSolver::step(int step, double t)
 
 void TransientSolver::Solve(SP_state initial_state)
 {
+
+	std::cout << "solve ***********\n";
+
   d_material->update(0.0, 0, 1, false);
 
   Construct_Operator(0, d_dt);
@@ -497,7 +500,6 @@ set_multiphysics(SP_multiphysics ic,
 				 SP_matrix U_multiphysics,
                  void* multiphysics_data)
 {
-
   int d_order= 1;
   // Preconditions
   Require(ic);
@@ -510,45 +512,81 @@ set_multiphysics(SP_multiphysics ic,
   // Create previous physics states
   d_vec_multiphysics.resize(d_order);
   d_multiphysics_0 = new MultiPhysics(*ic);
+
   for (int i = 0; i < d_order; ++i)
   {
     d_vec_multiphysics[i] = new MultiPhysics(*ic);
   }
 
-//  for ( int g=0; g<d_number_groups; g++)
-//  {
-//    SP_matrix TF;
-//    int r1 =  d_rf/d_number_groups;
-//    int r2 = U_multiphysics->number_columns();
-//	TF = new callow::MatrixDense(r2, r1);
+  /// UT\Sigma_f U1
+  for ( int g=0; g<d_number_groups; g++)
+  {
+    SP_matrix TF;
+    int r1 =  d_rf/d_number_groups;
+    int r2 = U_multiphysics->number_columns();
+	TF = new callow::MatrixDense(r2, r1);
+
+	for (int g=0; g<d_number_groups; g++)
+	{
+	for (int i=0; i<r1; i++)
+	{
+	  for (int j=0; j<r2; j++)
+	  {
+		double v = 0.0;
+        for (int cell=0; cell<d_num_cells; cell++)
+        {
+          v = (*U_multiphysics)(cell, j)*(*d_flux_basis)(cell+g*d_num_cells, i+g*r1)*d_material->sigma_f(cell, g);
+
+          TF->insert(j, i, v, 1);
+        }
+	  }
+	}
+
+	Temp_State_basis.push_back(TF);
+   }
+	Temp_State_basis[0]->print_matlab("TF0");
+	Temp_State_basis[1]->print_matlab("TF1");
+//	U_multiphysics->print_matlab("UT");
+//	d_flux_basis->print_matlab("flux_basis");
+
+  }
+
+  multiphysics_basis = U_multiphysics;
+  /// multiphysics initial condition
+
+  std::cout << " initial condition T *************\n";
+//  callow::Vector T_fom(d_multiphysics->variable(0).size(), 0.0);
 //
-//	for (int g=0; g<d_number_groups; g++)
+//  for (int i =0; i< d_multiphysics->variable(0).size(); i++)
 //	{
-//	for (int i=0; i<r1; i++)
-//	{
-//	  for (int j=0; j<r2; j++)
-//	  {
-//		double v = 0.0;
-//        for (int cell=0; cell<d_num_cells; cell++)
-//        	{v += (*U_multiphysics)(cell, j)*(*d_flux_basis)(cell+g*d_num_cells, i)*d_material->sigma_f(cell, g);}
-//        TF->insert(j, i, v);
-//	  }
+//	  T_fom[i] = d_multiphysics->variable(0)[i];
 //	}
 //
-//	Temp_State_basis.push_back(TF);
+//	callow::Vector T_rom_(U_multiphysics->number_columns(), 0.0);
+//
+//	U_multiphysics->multiply_transpose(T_fom, T_rom_);
+//
+//	d_multiphysics->variable(0).resize(U_multiphysics->number_columns(), 0.0);
+//
+//	for (int i=0; i< d_multiphysics->variable(0).size(); i++)
+//	{
+//	  d_multiphysics->variable(0)[i] = T_rom_[i];
 //	}
-//  }
+//
+//	T_rom_.print_matlab("T_rom_.txt");
+//
+//	std::cout << " set multiphysics ***********\n";
  }
 //----------------------------------------------------------------------------//
 
 void TransientSolver::
-update_multiphysics(const double t, const double dt, const size_t order)
+update_multiphysics(const double t, const double dt, const size_t order,  vec_matrix Temp_State_basis, SP_matrix multiphysics_basis)
 {
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
   std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
    // for now, I will pass the fluxes but later it has to be only the coefficients.
-  d_update_multiphysics_rhs(d_multiphysics_data, d_phi, t, dt);
+  d_update_multiphysics_rhs(d_multiphysics_data, d_sol_r, t, dt, Temp_State_basis, multiphysics_basis);
   std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute
@@ -567,6 +605,14 @@ update_multiphysics(const double t, const double dt, const size_t order)
     } // end element loop
 
     std::cout << "Pnew[0]=" << P[0] - 300.0 << std::endl;
+
+    // reconstruct for now
+
+//    callow:: Vector FOM(d_mesh->number_cells(), 0.0);
+//    callow:: Vector ROM(Temp_State_basis[0]->number_rows());
+//
+//    multiphysics_basis->multiply(FOM, ROM);
+
   } // end variable loop
 }
 

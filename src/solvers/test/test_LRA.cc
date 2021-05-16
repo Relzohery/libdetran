@@ -257,8 +257,12 @@ int test_LRA(int argc, char *argv[])
   //-------------------------------------------------------------------------//
 
   bool transport = false;
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(484, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, false, basis_T));
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -338,8 +342,13 @@ int test_LRA_ROM(int argc, char *argv[])
   //-------------------------------------------------------------------------//
 
   bool transport = false;
+
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(484, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, false, basis_T));
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -370,7 +379,7 @@ int test_LRA_ROM(int argc, char *argv[])
 
   const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
   const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
-  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  //const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
   int rc = 30;
   int rf = 50;
   int n = 484;
@@ -383,19 +392,23 @@ int test_LRA_ROM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n*2, rc);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-  SP_matrix basis_T;
-  basis_T = new callow::MatrixDense(n, 10);
-  ROMBasis::GetBasis(temperature_basis, basis_T);
+//  SP_matrix basis_T;
+//  basis_T = new callow::MatrixDense(n, 10);
+//  ROMBasis::GetBasis(temperature_basis, basis_T);
 
   time_t begin, end;
   time(&begin);
   ProfilerStart("test_LRA_rom.prof");
+
+  std::cout << " ***********1 ******************\n";
   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
+  std::cout << " ***********2 ******************\n";
 
   detran_utilities::SP<detran_user::LRA> mat_lra;
 
   mat_lra = mat;
   //mat_lra->multipysics_reduced(basis_T);
+  std::cout << " ***********3 ******************\n";
 
   R.set_multiphysics(mat_lra->physics(),
                      detran_user::update_T_rhs<_2D>,
@@ -439,8 +452,16 @@ int test_LRA_DEIM(int argc, char *argv[])
   //-------------------------------------------------------------------------//
 
   bool transport = false;
+
+
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(484, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
+
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, true, basis_T));
+
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -471,7 +492,6 @@ int test_LRA_DEIM(int argc, char *argv[])
 
   const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
   const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
-  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
   const char* deim_basis = "./../../../source/src/solvers/test/rom_basis/LRA_deim_basis";
   int rc = 30;
   int rf = 50;
@@ -485,9 +505,9 @@ int test_LRA_DEIM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n*2, rc);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-  SP_matrix basis_T;
-  basis_T = new callow::MatrixDense(n, 10);
-  ROMBasis::GetBasis(temperature_basis, basis_T);
+//  SP_matrix basis_T;
+//  basis_T = new callow::MatrixDense(n, 10);
+//  ROMBasis::GetBasis(temperature_basis, basis_T);
 
   SP_matrix basis_deim;
   basis_deim = new callow::MatrixDense(5148, 20);

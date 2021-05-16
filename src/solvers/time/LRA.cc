@@ -17,7 +17,7 @@ namespace detran_user
 
 
 //---------------------------------------------------------------------------//
-LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady)
+LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
   : Base(mesh->number_cells(), 2, 2, "LRA_MATERIAL")
   , d_mesh(mesh)
   , d_flag(doingtransport)
@@ -48,15 +48,42 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady)
   d_physics = new detran::MultiPhysics(1);
   d_physics->variable(0).resize(d_mesh->number_cells(), 300.0);
 
-
+  rom_flag = rom;
 
   initialize_materials();
+
+  U_T = U;
+  vec_dbl &T = d_physics->variable(0);
+
+  /// project initial condition before begining solve
+  if (rom)
+  {
+    callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
+
+	for (int i =0; i< d_physics->variable(0).size(); i++)
+	{
+	  T_fom[i] = d_physics->variable(0)[i];
+	}
+
+	callow::Vector T_rom_(U_T->number_columns(), 0.0);
+
+	U_T->multiply_transpose(T_fom, T_rom_);
+
+	d_physics->variable(0).resize(U_T->number_columns(), 0.0);
+
+	for (int i=0; i< d_physics->variable(0).size(); i++)
+	{
+	  d_physics->variable(0)[i] = T_rom_[i];
+	}
+
+	T_rom_.print_matlab("T_rom_.txt");
+  }
 }
 
 //---------------------------------------------------------------------------//
-LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady)
+LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady, bool rom, SP_matrix U)
 {
-  SP_material p(new LRA(mesh, flag, steady));
+  SP_material p(new LRA(mesh, flag, steady, rom, U));
   return p;
 }
 
@@ -119,6 +146,7 @@ void LRA::update_impl()
 {
   initialize_materials();
 
+  std::cout << "material **********\n";
   if (d_steady) return;
 
   // Remember, d_t is the time given to the step routine.  It
@@ -159,10 +187,35 @@ void LRA::update_impl()
 
     // update the FAST cross section
     double sigma_a1 = A1[m];
-    if (m != REFLECTOR) // only FUEL has feedback
+
+    if (m != REFLECTOR && rom_flag)
+    {
+    	std::cout << "reconstruct T\n";
+      // reconstruct T
+      callow::Vector T_fom(d_mesh->number_cells(), 0.0);
+      callow::Vector T_rom(U_T->number_columns(), 0.0);
+
+      for (int j=0; j< U_T->number_columns(); j++)
+      {
+       T_rom[j] = T[j];
+      }
+
+      T_rom.print_matlab("T_rom.txt");
+  	std::cout << "here **********\n";
+
+    U_T->multiply(T_rom, T_fom);
+
+    sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T_fom[i]) - std::sqrt(300.0)));
+
+     std::cout << sigma_a1 << "  " << T_fom[i];
+    }
+
+    else if (m != REFLECTOR) // only FUEL has feedback
     {
       //std::cout << d_t << "  " << "T here = " << T[i] << "\n";
       sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T[i]) - std::sqrt(300.0)));
+      std::cout << d_t << "  " << sigma_a1 << "  " << T[i];
+
 
     }
     double delta_1  = sigma_a1 - A1[m];
@@ -210,46 +263,59 @@ void LRA::update_P_and_T(double t, double dt)
 }
 
 //---------------------------------------------------------------------------//
-void LRA::update_P_and_T(SP_vector phi, double t, double dt)
+void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_matrix U)
 {
+
+  std::cout << "update p and T  \n";
   // Compute power and temperature.  Note, we "unscale" by keff.
   vec_dbl &T = d_physics->variable(0);
 
+  //T_rom =  new callow::Vector(TF->number_columns(), 0.0);
+  int r_flux = (TF[0]->number_columns());
+
   double F = 0;
 
-  for (size_t i = 0; i < d_mesh->number_cells(); ++i)
+  for (int i=0; i<TF[0]->number_rows(); i++)
   {
-    F = sigma_f(i, 0) * (*phi)[i] + sigma_f(i, 1) * (*phi)[i + d_mesh->number_cells()];
-
-    d_P[i] = KAPPA * F;
-    if (t > 0.0)
-      T[i] = ALPHA * F;
+    for (int j=0; j<TF[0]->number_columns(); j++)
+    {
+      T[i] += ALPHA*((*TF[0])(i, j)*(*phi)[j] + (*TF[1])(i, j)*(*phi)[j+r_flux]);
+    }
   }
-   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * (*phi)[0] + sigma_f(0, 1) * (*phi)[d_mesh->number_cells()] << std::endl;
+
+//  for (size_t i = 0; i < d_mesh->number_cells(); ++i)
+//  {
+//    F = sigma_f(i, 0) * (*phi)[i] + sigma_f(i, 1) * (*phi)[i + d_mesh->number_cells()];
+//
+//    d_P[i] = KAPPA * F;
+//    if (t > 0.0)
+//      T[i] = ALPHA * F;
+//  }
+//   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * (*phi)[0] + sigma_f(0, 1) * (*phi)[d_mesh->number_cells()] << std::endl;
+
 }
 
 
-//void LRA::multipysics_reduced(SP_matrix  U)
-//{
-//  callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
-//
-//  for (int i =0; i< d_physics->variable(0).size(); i++)
-//  {
-//    T_fom[i] = d_physics->variable(0)[i];
-//  }
-//
-//  callow::Vector T_rom(U->number_columns(), 0.0);
-//
-//  U->multiply_transpose(T_fom, T_rom);
-//
-//  d_physics->variable(0).resize(U->number_columns(), 300.0);
-//
-//  for (int i=0; i< d_physics->variable(0).size(); i++)
-//  {
-//    d_physics->variable(0)[i] = T_rom[i];
-//  }
-//
-//}
+void LRA::multipysics_reduced(SP_matrix  U)
+{
+  callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
+
+  for (int i =0; i< d_physics->variable(0).size(); i++)
+  {
+    T_fom[i] = d_physics->variable(0)[i];
+  }
+
+  callow::Vector T_rom_(U->number_columns(), 0.0);
+
+  U->multiply_transpose(T_fom, T_rom_);
+
+  d_physics->variable(0).resize(U->number_columns(), 300.0);
+
+  for (int i=0; i< d_physics->variable(0).size(); i++)
+  {
+    d_physics->variable(0)[i] = T_rom_[i];
+  }
+}
 
 } // end namespace detran_user
 

@@ -14,8 +14,11 @@
 #include "kinetics/MultiPhysics.hh"
 #include "geometry/Mesh.hh"
 #include "callow/vector/Vector.hh"
+#include "callow/matrix/MatrixDense.hh"
 #include "TimeStepper.hh"
 #include <iostream>
+
+using namespace callow;
 
 namespace detran_user
 {
@@ -63,6 +66,10 @@ public:
   typedef detran::MultiPhysics::SP_multiphysics     SP_multiphysics;
   typedef std::vector<callow::Vector>               flux_vec;
   typedef callow::Vector::SP_vector                 SP_vector;
+  typedef MatrixDense::SP_matrix            SP_matrix;
+  typedef std::vector<SP_matrix>                    vec_matrix;
+
+
 
 
   //-------------------------------------------------------------------------//
@@ -73,10 +80,10 @@ public:
    *  @brief Constructor
    *  @param mesh       User-defined LRA mesh
    */
-  LRA(SP_mesh mesh, bool doingtransport, bool steady);
+  LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U);
 
   // SP constructor
-  static SP_material Create(SP_mesh, bool flag, bool steady);
+  static SP_material Create(SP_mesh, bool flag, bool steady, bool rom, SP_matrix U);
 
   //-------------------------------------------------------------------------//
   // PUBLIC FUNCTIONS
@@ -85,12 +92,14 @@ public:
   void set_state(SP_state);
   void initialize_materials();
   void update_P_and_T(double t, double dt);
-  void update_P_and_T(SP_vector phi, double t, double dt);
+  void update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_matrix U);
   vec_dbl T() {return d_T;}
   vec_dbl P() {return d_P;}
   SP_multiphysics physics() {return d_physics;}
   double area() {return d_A;}
   void set_area(double a) {d_A = a;}
+
+  void multipysics_reduced(SP_matrix  U);
 
   //void multipysics_reduced(SP_matrix  U);
 
@@ -123,6 +132,11 @@ public:
   /// Store the current time for iteration purposes
   double d_current_time;
 
+  SP_vector T_rom;
+
+  SP_matrix U_T;
+
+ bool rom_flag;
   //-------------------------------------------------------------------------//
   // ABSTRACT INTERFACE -- ALL TIME DEPENDENT MATERIALS MUST IMPLEMENT THESE
   //-------------------------------------------------------------------------//
@@ -163,7 +177,7 @@ void update_T_rhs(void* data,
 template <class D>
 void update_T_rhs(void* data,
 		          callow::Vector::SP_vector phi, double t,
-                  double dt)
+                  double dt,std::vector<MatrixDense::SP_matrix > TF,  MatrixDense::SP_matrix  U)
 {
   Require(data);
 
@@ -171,7 +185,7 @@ void update_T_rhs(void* data,
   LRA* mat = (LRA*) data;
 
   // update
-  mat->update_P_and_T(phi, t, dt);
+  mat->update_P_and_T(phi, t, dt, TF, U);
 }
 } // end namespace detran_user
 
