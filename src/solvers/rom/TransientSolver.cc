@@ -330,9 +330,6 @@ void TransientSolver::step(int step, double t)
 
   d_solver->solve(*d_sol0_r, *d_sol_r);
 
-  // reconstruct the full solution
-  reconstruct(step);
-
   if (d_multiphysics)
   {
     update_multiphysics(t, d_dt, 1, Temp_State_basis, multiphysics_basis);
@@ -343,9 +340,6 @@ void TransientSolver::step(int step, double t)
 
 void TransientSolver::Solve(SP_state initial_state)
 {
-
-	std::cout << "solve ***********\n";
-
   d_material->update(0.0, 0, 1, false);
 
   Construct_Operator(0, d_dt);
@@ -392,6 +386,8 @@ void TransientSolver::Solve(SP_state initial_state)
       (*d_sol0_r)[i] = (*d_sol_r)[i];
     }
 
+    // reconstruct the full solution
+      reconstruct(step_no);
     if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
  }
 
@@ -526,8 +522,6 @@ set_multiphysics(SP_multiphysics ic,
     int r2 = U_multiphysics->number_columns();
 	TF = new callow::MatrixDense(r2, r1);
 
-	for (int g=0; g<d_number_groups; g++)
-	{
 	for (int i=0; i<r1; i++)
 	{
 	  for (int j=0; j<r2; j++)
@@ -535,26 +529,24 @@ set_multiphysics(SP_multiphysics ic,
 		double v = 0.0;
         for (int cell=0; cell<d_num_cells; cell++)
         {
-          v = (*U_multiphysics)(cell, j)*(*d_flux_basis)(cell+g*d_num_cells, i+g*r1)*d_material->sigma_f(cell, g);
-
-          TF->insert(j, i, v, 1);
+          v += (*U_multiphysics)(cell, j)*(*d_flux_basis)(cell+g*d_num_cells, i+g*r1)*d_material->sigma_f(cell, g);
         }
+
+        TF->insert(j, i, v);
 	  }
 	}
 
 	Temp_State_basis.push_back(TF);
    }
+
+
 	Temp_State_basis[0]->print_matlab("TF0");
 	Temp_State_basis[1]->print_matlab("TF1");
-//	U_multiphysics->print_matlab("UT");
-//	d_flux_basis->print_matlab("flux_basis");
-
-  }
+ 	U_multiphysics->print_matlab("UT");
+	d_flux_basis->print_matlab("flux_basis");
 
   multiphysics_basis = U_multiphysics;
   /// multiphysics initial condition
-
-  std::cout << " initial condition T *************\n";
 //  callow::Vector T_fom(d_multiphysics->variable(0).size(), 0.0);
 //
 //  for (int i =0; i< d_multiphysics->variable(0).size(); i++)
@@ -584,7 +576,7 @@ update_multiphysics(const double t, const double dt, const size_t order,  vec_ma
 {
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
-  std::cout << " P before = " << d_multiphysics->variable(0)[0] - 300.0 << std::endl;
+   std::cout << " P before = " << d_multiphysics->variable(0)[0]  << std::endl;
    // for now, I will pass the fluxes but later it has to be only the coefficients.
   d_update_multiphysics_rhs(d_multiphysics_data, d_sol_r, t, dt, Temp_State_basis, multiphysics_basis);
   std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
@@ -604,7 +596,7 @@ update_multiphysics(const double t, const double dt, const size_t order,  vec_ma
       P[j] = v / bdf_coefs[order-1][0];
     } // end element loop
 
-    std::cout << "Pnew[0]=" << P[0] - 300.0 << std::endl;
+    std::cout << "Pnew[0]=" << P[0]  << std::endl;
 
     // reconstruct for now
 
