@@ -8,13 +8,12 @@
 //---------------------------------------------------------------------------//
 
 #include "LRA.hh"
+#include "solvers/rom/DEIM.hh"
 
 
 
 namespace detran_user
 {
-
-
 
 //---------------------------------------------------------------------------//
 LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
@@ -53,7 +52,7 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
   initialize_materials();
 
   U_T = U;
-  vec_dbl &T = d_physics->variable(0);
+  //vec_dbl &T = d_physics->variable(0);
 
   /// project initial condition before begining solve
   if (rom)
@@ -75,6 +74,8 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
 	{
 	  d_physics->variable(0)[i] = T_rom_[i];
 	}
+
+	LRA::DEIM_XS();
 
 	T_rom_.print_matlab("T_rom_.txt");
   }
@@ -146,7 +147,6 @@ void LRA::update_impl()
 {
   initialize_materials();
 
-  std::cout << "material **********\n";
   if (d_steady) return;
 
   // Remember, d_t is the time given to the step routine.  It
@@ -159,6 +159,41 @@ void LRA::update_impl()
   double delta_2 = sigma_a2 - A2[ROD];
 
   vec_dbl &T = d_physics->variable(0);
+  callow::Vector T_fom(d_mesh->number_cells(), 0.0);
+
+  if (rom_flag)
+  {
+//	// reconstruct T
+//	 callow::Vector T_rom(U_T->number_columns(), 0.0);
+//
+//	 for (int j=0; j< U_T->number_columns(); j++)
+//	 {
+//	   T_rom[j] = T[j];
+//	 }
+//
+//	 T_rom.print_matlab("T_rom.txt");
+//	 U_T->multiply(T_rom, T_fom);
+
+    int r= 10;
+
+	b = new callow::Vector(r, 0.0);
+	for (int i=0; i<Ur_deim->number_columns(); i++)
+	{
+	  int id = l[i];
+	  size_t m = d_unique_mesh_map[id];
+	  double v;
+      for (int j; j<U_T->number_columns(); j++)
+	  {
+	   v += (*U_T)(id, j)*T[j];
+	  }
+      (*b)[i] = A1[m] * (1.0 + GAMMA * (std::sqrt(v) - std::sqrt(300.0)));
+	}
+	  std::cout << (*b)[0] << " ###########\n";
+
+	 d_x_deim = new callow::Vector(r, 0.0);
+	 d_solver_deim->solve(*b, *d_x_deim);
+
+  }
 
   for (int i = 0; i < d_mesh->number_cells(); ++i)
   {
@@ -190,34 +225,34 @@ void LRA::update_impl()
 
     if (m != REFLECTOR && rom_flag)
     {
-    	std::cout << "reconstruct T\n";
-      // reconstruct T
-      callow::Vector T_fom(d_mesh->number_cells(), 0.0);
-      callow::Vector T_rom(U_T->number_columns(), 0.0);
 
-      for (int j=0; j< U_T->number_columns(); j++)
+
+    //  for (int i=0; i<10; i++)
+//      {
+//    	for (int j; j<U_T->number_columns(); j++)
+//    	{
+//    	  double v = (*Ur_deim)(i, j)*T[j];
+//          (*b)[i] += A1[m] * (1.0 + GAMMA * (std::sqrt(v) - std::sqrt(300.0)));
+//    	}
+//      }
+
+
+     int r = 10;
+      sigma_a1 = 0;
+      for (int k=0; k<r; k++)
       {
-       T_rom[j] = T[j];
+        sigma_a1 += (*DEIM_basis)(i, k)*(*d_x_deim)[k];
       }
-
-      T_rom.print_matlab("T_rom.txt");
-  	std::cout << "here **********\n";
-
-    U_T->multiply(T_rom, T_fom);
-
-    sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T_fom[i]) - std::sqrt(300.0)));
-
-     std::cout << sigma_a1 << "  " << T_fom[i];
+     // sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T_fom[i]) - std::sqrt(300.0)));
     }
 
     else if (m != REFLECTOR) // only FUEL has feedback
     {
       //std::cout << d_t << "  " << "T here = " << T[i] << "\n";
       sigma_a1 = A1[m] * (1.0 + GAMMA * (std::sqrt(T[i]) - std::sqrt(300.0)));
-      std::cout << d_t << "  " << sigma_a1 << "  " << T[i];
-
-
+      //std::cout << d_t << "  " << sigma_a1 << "  " << T[i];
     }
+
     double delta_1  = sigma_a1 - A1[m];
 
     if (d_flag)
@@ -265,7 +300,6 @@ void LRA::update_P_and_T(double t, double dt)
 //---------------------------------------------------------------------------//
 void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_matrix U)
 {
-
   std::cout << "update p and T  \n";
   // Compute power and temperature.  Note, we "unscale" by keff.
   vec_dbl &T = d_physics->variable(0);
@@ -273,25 +307,27 @@ void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_m
   //T_rom =  new callow::Vector(TF->number_columns(), 0.0);
   int r_flux = (TF[0]->number_columns());
 
-  double F = 0;
-
   for (int i=0; i<TF[0]->number_rows(); i++)
   {
+	 double F = 0;
     for (int j=0; j<TF[0]->number_columns(); j++)
     {
-      T[i] += ALPHA*((*TF[0])(i, j)*(*phi)[j] + (*TF[1])(i, j)*(*phi)[j+r_flux]);
+      if (t  > 0.0)
+      F += ((*TF[0])(i, j)*(*phi)[j] + (*TF[1])(i, j)*(*phi)[j+r_flux]);
     }
+
+    T[i] = ALPHA * F;
   }
 
 //  for (size_t i = 0; i < d_mesh->number_cells(); ++i)
 //  {
 //    F = sigma_f(i, 0) * (*phi)[i] + sigma_f(i, 1) * (*phi)[i + d_mesh->number_cells()];
 //
-//    d_P[i] = KAPPA * F;
+//    //d_P[i] = KAPPA * F;
 //    if (t > 0.0)
 //      T[i] = ALPHA * F;
 //  }
-//   std::cout << " T[0]=" << T[0] <<  " F=" << sigma_f(0, 0) * (*phi)[0] + sigma_f(0, 1) * (*phi)[d_mesh->number_cells()] << std::endl;
+   //std::cout << " T[0]=" << T[0]  << std::endl;
 
 }
 
@@ -315,6 +351,35 @@ void LRA::multipysics_reduced(SP_matrix  U)
   {
     d_physics->variable(0)[i] = T_rom_[i];
   }
+}
+
+void LRA::DEIM_XS()
+{
+  const char* basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
+  int r = 10;
+
+  DEIM_basis = new callow::MatrixDense(484, r);
+  ROMBasis::GetBasis(basis, DEIM_basis);
+
+  DEIM D(DEIM_basis, r);
+  D.Search();
+
+  l = D.interpolation_indices();
+
+  Ur_deim = new callow::MatrixDense(r, r);
+  Ur_deim = D.ReducedBasis();
+
+  LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
+  p->put<std::string>("linear_solver_type", "petsc");
+  p->put<std::string>("pc_type", "petsc_pc");
+  p->put<double>("linear_solver_rtol",              1e-16);
+  p->put<std::string>("petsc_pc_type",                      "lu");
+  p->put<int>("linear_solver_maxit",                   1000);
+  p->put<int>("linear_solver_monitor_level", 0);
+  p->put<int>("linear_solver_monitor_diverge", 0);
+  d_solver_deim = LinearSolverCreator::Create(p);
+
+  d_solver_deim->set_operators(Ur_deim, p);
 }
 
 } // end namespace detran_user

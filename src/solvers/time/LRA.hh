@@ -11,14 +11,21 @@
 #define detran_user_LRA_HH_
 
 #include "kinetics/TimeDependentMaterial.hh"
+#include "callow/solver/LinearSolverCreator.hh"
+#include "callow/solver/LinearSolver.hh"
 #include "kinetics/MultiPhysics.hh"
 #include "geometry/Mesh.hh"
 #include "callow/vector/Vector.hh"
 #include "callow/matrix/MatrixDense.hh"
+#include "solvers/rom/ROMBasis.hh"
+#include "solvers/rom/DEIM.hh"
 #include "TimeStepper.hh"
 #include <iostream>
 
+
 using namespace callow;
+using namespace detran;
+
 
 namespace detran_user
 {
@@ -66,8 +73,10 @@ public:
   typedef detran::MultiPhysics::SP_multiphysics     SP_multiphysics;
   typedef std::vector<callow::Vector>               flux_vec;
   typedef callow::Vector::SP_vector                 SP_vector;
-  typedef MatrixDense::SP_matrix            SP_matrix;
+  typedef MatrixDense::SP_matrix                    SP_matrix;
   typedef std::vector<SP_matrix>                    vec_matrix;
+  typedef LinearSolverCreator::SP_solver            SP_solver;
+
 
 
 
@@ -137,6 +146,22 @@ public:
   SP_matrix U_T;
 
  bool rom_flag;
+
+ int * l;
+
+ SP_matrix Ur_deim;
+
+ SP_matrix DEIM_basis;
+
+
+ SP_vector b;
+
+ SP_vector d_x_deim;
+
+ /// Linear solver
+  SP_solver d_solver;
+  /// linear solver DEIM
+  SP_solver d_solver_deim;
   //-------------------------------------------------------------------------//
   // ABSTRACT INTERFACE -- ALL TIME DEPENDENT MATERIALS MUST IMPLEMENT THESE
   //-------------------------------------------------------------------------//
@@ -150,6 +175,8 @@ public:
    *
    */
   void update_impl();
+
+  void DEIM_XS();
 
 };
 
@@ -187,6 +214,11 @@ void update_T_rhs(void* data,
   // update
   mat->update_P_and_T(phi, t, dt, TF, U);
 }
+
+//----------------------------------------------------------------------------//
+
 } // end namespace detran_user
+
+
 
 #endif /* detran_user_LRA_HH_ */

@@ -348,7 +348,7 @@ int test_LRA_ROM(int argc, char *argv[])
   basis_T = new callow::MatrixDense(484, 10);
   ROMBasis::GetBasis(temperature_basis, basis_T);
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, false, basis_T));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, true, basis_T));
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
