@@ -217,6 +217,7 @@ private:
 
   SP_matrix multiphysics_basis;
 
+  SP_matrix XS;
   void step(int, double);
 
   /// DEIM offline stage

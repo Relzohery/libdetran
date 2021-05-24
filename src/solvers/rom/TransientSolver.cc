@@ -77,6 +77,8 @@ TransientSolver::TransientSolver(SP_input inp, SP_mesh mesh, SP_material materia
   d_flux = new callow::MatrixDense(d_number_groups*d_num_cells, d_number_steps+1);
   // vector of the power at all time steps
   d_power = new callow::Vector(d_number_steps+1);
+
+  XS = new callow::MatrixDense(d_num_cells, d_number_steps+1);
 }
 
 //------------------------------------------------------------------------------------//
@@ -309,6 +311,12 @@ void TransientSolver::step(int step, double t)
 {
   d_material->update(t, d_dt, 1, false);
 
+  for (int cell=0; cell<d_num_cells; cell++)
+  {
+    XS->insert(cell, step, d_material->sigma_a(cell, 0));
+
+  }
+
   Refersh_Operator();
 
   for (int i=0; i<d_n; i++)
@@ -330,10 +338,14 @@ void TransientSolver::step(int step, double t)
 
   d_solver->solve(*d_sol0_r, *d_sol_r);
 
+  //reconstruct(step);
+
   if (d_multiphysics)
   {
     update_multiphysics(t, d_dt, 1, Temp_State_basis, multiphysics_basis);
   }
+
+
 }
 
 //------------------------------------------------------------------------------------//
@@ -387,10 +399,11 @@ void TransientSolver::Solve(SP_state initial_state)
     }
 
     // reconstruct the full solution
-      reconstruct(step_no);
+    reconstruct(step_no);
     if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
  }
 
+  XS->print_matlab("lra_rom_cross_section_no_deim.txt");
 }
 
 //------------------------------------------------------------------------------------//

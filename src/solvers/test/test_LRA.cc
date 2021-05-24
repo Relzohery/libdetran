@@ -456,7 +456,7 @@ int test_LRA_DEIM(int argc, char *argv[])
 
   const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
   SP_matrix basis_T;
-  basis_T = new callow::MatrixDense(484, 10);
+  basis_T = new callow::MatrixDense(484, 30);
   ROMBasis::GetBasis(temperature_basis, basis_T);
 
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
