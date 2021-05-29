@@ -88,10 +88,10 @@ public:
    *  @brief Constructor
    *  @param mesh       User-defined LRA mesh
    */
-  LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U);
+  LRA(SP_mesh mesh, bool doingtransport, bool steady);
 
   // SP constructor
-  static SP_material Create(SP_mesh, bool flag, bool steady, bool rom, SP_matrix U);
+  static SP_material Create(SP_mesh, bool flag, bool steady);
 
   //-------------------------------------------------------------------------//
   // PUBLIC FUNCTIONS
@@ -100,7 +100,8 @@ public:
   void set_state(SP_state);
   void initialize_materials();
   void update_P_and_T(double t, double dt);
-  void update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_matrix U);
+  /// update function for the ROM
+  void update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF);
   vec_dbl T() {return d_T;}
   vec_dbl P() {return d_P;}
   SP_multiphysics physics() {return d_physics;}
@@ -108,8 +109,6 @@ public:
   void set_area(double a) {d_A = a;}
 
   void multipysics_reduced(SP_matrix  U);
-
-  //void multipysics_reduced(SP_matrix  U);
 
   //-------------------------------------------------------------------------//
   // DATA
@@ -171,10 +170,10 @@ public:
    */
   void update_impl();
 
-  void DEIM_XS();
-
+  /// set the ROM using the basis UT
   void set_ROM(SP_matrix U_T);
 
+  /// setting for approximating the cross-section using DEIM
   void set_DEIM(SP_matrix U_deim);
 
 };
@@ -203,7 +202,7 @@ void update_T_rhs(void* data,
 template <class D>
 void update_T_rhs(void* data,
 		          callow::Vector::SP_vector phi, double t,
-                  double dt,std::vector<MatrixDense::SP_matrix > TF,  MatrixDense::SP_matrix  U)
+                  double dt,std::vector<MatrixDense::SP_matrix > TF)
 {
   Require(data);
 
@@ -211,7 +210,7 @@ void update_T_rhs(void* data,
   LRA* mat = (LRA*) data;
 
   // update
-  mat->update_P_and_T(phi, t, dt, TF, U);
+  mat->update_P_and_T(phi, t, dt, TF);
 }
 
 //----------------------------------------------------------------------------//

@@ -341,10 +341,8 @@ void TransientSolver::step(int step, double t)
 
   if (d_multiphysics)
   {
-    update_multiphysics(t, d_dt, 1, Temp_State_basis, multiphysics_basis);
+    update_multiphysics(t, d_dt, 1, Temp_State_basis);
   }
-
-
 }
 
 //------------------------------------------------------------------------------------//
@@ -383,7 +381,6 @@ void TransientSolver::Solve(SP_state initial_state)
     size_t iteration = 1;
     for (; iteration <= d_maximum_iterations; ++iteration)
     {
-      std::cout << "step = " << step_no << " " << "iteration= " << iteration << "\n";
       step(step_no, t);
 
       bool converged = check_convergence();
@@ -399,10 +396,10 @@ void TransientSolver::Solve(SP_state initial_state)
 
     // reconstruct the full solution
     reconstruct(step_no);
+
     if (d_multiphysics) *d_vec_multiphysics[0] = *d_multiphysics;
  }
 
-  XS->print_matlab("lra_rom_cross_section_no_deim.txt");
 }
 
 //------------------------------------------------------------------------------------//
@@ -436,17 +433,6 @@ void TransientSolver::reconstruct(int step)
   int m;
 
   int rg = d_rf/d_number_groups;
-
-  //  for (int g=0; g<d_number_groups; g++)
-  //  {
-  //    callow::Vector phi_g(rg, 0.0);
-  //    for (int i=0; i<rg; i++)
-  //    {
-  //     phi_g[i] = (*d_sol_r)(rg*g + i);
-  //    }
-  //
-//    fluxes.push_back(phi_g);
-//  }
 }
 
 //------------------------------------------------------------------------------//
@@ -551,46 +537,18 @@ set_multiphysics(SP_multiphysics ic,
 	Temp_State_basis.push_back(TF);
    }
 
-
-	Temp_State_basis[0]->print_matlab("TF0");
-	Temp_State_basis[1]->print_matlab("TF1");
- 	U_multiphysics->print_matlab("UT");
-	d_flux_basis->print_matlab("flux_basis");
-
   multiphysics_basis = U_multiphysics;
-  /// multiphysics initial condition
-//  callow::Vector T_fom(d_multiphysics->variable(0).size(), 0.0);
-//
-//  for (int i =0; i< d_multiphysics->variable(0).size(); i++)
-//	{
-//	  T_fom[i] = d_multiphysics->variable(0)[i];
-//	}
-//
-//	callow::Vector T_rom_(U_multiphysics->number_columns(), 0.0);
-//
-//	U_multiphysics->multiply_transpose(T_fom, T_rom_);
-//
-//	d_multiphysics->variable(0).resize(U_multiphysics->number_columns(), 0.0);
-//
-//	for (int i=0; i< d_multiphysics->variable(0).size(); i++)
-//	{
-//	  d_multiphysics->variable(0)[i] = T_rom_[i];
-//	}
-//
-//	T_rom_.print_matlab("T_rom_.txt");
-//
-//	std::cout << " set multiphysics ***********\n";
  }
 //----------------------------------------------------------------------------//
 
 void TransientSolver::
-update_multiphysics(const double t, const double dt, const size_t order,  vec_matrix Temp_State_basis, SP_matrix multiphysics_basis)
+update_multiphysics(const double t, const double dt, const size_t order,  vec_matrix Temp_State_basis)
 {
   // Update the right hand side.  The result is placed into
   // the working vector d_multiphysics
    std::cout << " P before = " << d_multiphysics->variable(0)[0]  << std::endl;
    // for now, I will pass the fluxes but later it has to be only the coefficients.
-  d_update_multiphysics_rhs(d_multiphysics_data, d_sol_r, t, dt, Temp_State_basis, multiphysics_basis);
+  d_update_multiphysics_rhs(d_multiphysics_data, d_sol_r, t, dt, Temp_State_basis);
   std::cout << " P after = " << d_multiphysics->variable(0)[0] << std::endl;
 
   // Loop through and compute
@@ -609,13 +567,6 @@ update_multiphysics(const double t, const double dt, const size_t order,  vec_ma
     } // end element loop
 
     std::cout << "Pnew[0]=" << P[0]  << std::endl;
-
-    // reconstruct for now
-
-//    callow:: Vector FOM(d_mesh->number_cells(), 0.0);
-//    callow:: Vector ROM(Temp_State_basis[0]->number_rows());
-//
-//    multiphysics_basis->multiply(FOM, ROM);
 
   } // end variable loop
 }

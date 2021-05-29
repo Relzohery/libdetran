@@ -262,7 +262,7 @@ int test_LRA(int argc, char *argv[])
   basis_T = new callow::MatrixDense(484, 10);
   ROMBasis::GetBasis(temperature_basis, basis_T);
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, false, basis_T));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
 
 
   //-------------------------------------------------------------------------//
@@ -342,14 +342,47 @@ int test_LRA_ROM(int argc, char *argv[])
   // MATERIAL
   //-------------------------------------------------------------------------//
 
+  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
+  const char* XS_basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
+
+  int rc = 30;
+  int rf = 50;
+  int n = 484;
+  int r_deim = 10;
+  int nnz_diffusion = 5148;
+
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(n, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
+
+  SP_matrix basis_f;
+  basis_f = new callow::MatrixDense(n*2, 2*rf);
+  ROMBasis::GetBasis(flux_basis, basis_f);
+
+  SP_matrix basis_p;
+  basis_p = new callow::MatrixDense(n*2, rc);
+  ROMBasis::GetBasis(precursors_basis, basis_p);
+
+  SP_matrix basis_XS;
+  basis_XS = new callow::MatrixDense(n, r_deim);
+  ROMBasis::GetBasis(XS_basis, basis_XS);
+
+  //-------------------------------------------------------------------------//
+  // MATERIAL
+  //-------------------------------------------------------------------------//
+
   bool transport = false;
 
-  const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
-  SP_matrix basis_T;
-  basis_T = new callow::MatrixDense(484, 10);
-  ROMBasis::GetBasis(temperature_basis, basis_T);
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, true, basis_T));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
+
+  detran_utilities::SP<detran_user::LRA> mat_lra;
+
+  mat_lra = mat;
+  mat_lra->set_ROM(basis_T);
+  mat_lra->set_DEIM(basis_XS);
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -378,38 +411,11 @@ int test_LRA_ROM(int argc, char *argv[])
   // TIME STEPPER
   //-------------------------------------------------------------------------//
 
-  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
-  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
-  //const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
-  int rc = 30;
-  int rf = 50;
-  int n = 484;
-
-  SP_matrix basis_f;
-  basis_f = new callow::MatrixDense(n*2, 2*rf);
-  ROMBasis::GetBasis(flux_basis, basis_f);
-
-  SP_matrix basis_p;
-  basis_p = new callow::MatrixDense(n*2, rc);
-  ROMBasis::GetBasis(precursors_basis, basis_p);
-
-//  SP_matrix basis_T;
-//  basis_T = new callow::MatrixDense(n, 10);
-//  ROMBasis::GetBasis(temperature_basis, basis_T);
-
   time_t begin, end;
   time(&begin);
   ProfilerStart("test_LRA_rom.prof");
 
-  std::cout << " ***********1 ******************\n";
   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
-  std::cout << " ***********2 ******************\n";
-
-  detran_utilities::SP<detran_user::LRA> mat_lra;
-
-  mat_lra = mat;
-  //mat_lra->multipysics_reduced(basis_T);
-  std::cout << " ***********3 ******************\n";
 
   R.set_multiphysics(mat_lra->physics(),
                      detran_user::update_T_rhs<_2D>,
@@ -417,9 +423,6 @@ int test_LRA_ROM(int argc, char *argv[])
                      (void *) mat_lra.bp());
 
   R.Solve(ic);
-  //time(&end);
-  //time_t elapsed = end - begin;
-  //printf("time elapsed %1.6f\n", elapsed);
   time(&end);
   time_t elapsed = end - begin;
   ProfilerStop();
@@ -449,25 +452,24 @@ int test_LRA_DEIM(int argc, char *argv[])
   TS_2D::SP_mesh mesh = get_mesh(2);
 
   //-------------------------------------------------------------------------//
-  // MATERIAL
+  // ROM_DEIM basis
   //-------------------------------------------------------------------------//
-
-  bool transport = false;
-
 
   const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
   const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
   const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
-  const char* deim_basis = "./../../../source/src/solvers/test/rom_basis/LRA_deim_basis";
-  const char* basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
-
-  SP_matrix basis_T;
-  basis_T = new callow::MatrixDense(484, 10);
-  ROMBasis::GetBasis(temperature_basis, basis_T);
+  const char* XS_basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
+  const char* deim_basis = "./../../../source/src/solvers/test/rom_basis/LRA_deim_basis_";
 
   int rc = 30;
   int rf = 50;
   int n = 484;
+  int r_deim = 10;
+  int nnz_diffusion = 5148;
+
+  SP_matrix basis_T;
+  basis_T = new callow::MatrixDense(n, 10);
+  ROMBasis::GetBasis(temperature_basis, basis_T);
 
   SP_matrix basis_f;
   basis_f = new callow::MatrixDense(n*2, 2*rf);
@@ -477,21 +479,30 @@ int test_LRA_DEIM(int argc, char *argv[])
   basis_p = new callow::MatrixDense(n*2, rc);
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
-  int r = 10;
-  SP_matrix DEIM_basis;
-  DEIM_basis = new callow::MatrixDense(n, r);
-  ROMBasis::GetBasis(basis, DEIM_basis);
+  SP_matrix basis_XS;
+  basis_XS = new callow::MatrixDense(n, r_deim);
+  ROMBasis::GetBasis(XS_basis, basis_XS);
+
+
+  SP_matrix basis_deim;
+  basis_deim = new callow::MatrixDense(nnz_diffusion, r_deim);
+  ROMBasis::GetBasis(deim_basis, basis_deim);
+
+
+  //-------------------------------------------------------------------------//
+  // MATERIAL
+  //-------------------------------------------------------------------------//
+
+  bool transport = false;
 
   if (inp->get<std::string>("equation") != "diffusion") transport = true;
-  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false, true, basis_T));
+  TS_2D::SP_material mat(new detran_user::LRA(mesh, transport, false));
 
   detran_utilities::SP<detran_user::LRA> mat_lra;
 
   mat_lra = mat;
-
   mat_lra->set_ROM(basis_T);
-  mat_lra->set_DEIM(DEIM_basis);
-
+  mat_lra->set_DEIM(basis_XS);
 
   //-------------------------------------------------------------------------//
   // STEADY STATE
@@ -520,32 +531,19 @@ int test_LRA_DEIM(int argc, char *argv[])
   // TIME STEPPER
   //-------------------------------------------------------------------------//
 
-
-//  SP_matrix basis_T;
-//  basis_T = new callow::MatrixDense(n, 10);
-//  ROMBasis::GetBasis(temperature_basis, basis_T);
-
-  SP_matrix basis_deim;
-  basis_deim = new callow::MatrixDense(5148, 20);
-  ROMBasis::GetBasis(deim_basis, basis_deim);
-
   time_t begin, end;
   time(&begin);
   ProfilerStart("test_LRA_deim.prof");
   TransientSolver R(inp, mesh, mat, basis_f, basis_p);
   R.set_DEIM(basis_deim);
 
-
-  //mat_lra->multipysics_reduced(basis_T);
   R.set_multiphysics(mat_lra->physics(),
                      detran_user::update_T_rhs<_2D>,
 					 basis_T,
                      (void *) mat_lra.bp());
 
   R.Solve(ic);
-  //time(&end);
-  //time_t elapsed = end - begin;
-  //printf("time elapsed %1.6f\n", elapsed);
+
   time(&end);
   time_t elapsed = end - begin;
   ProfilerStop();

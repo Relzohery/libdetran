@@ -58,7 +58,7 @@ public:
   typedef std::vector<callow::Vector>               vec_flux;
 
   typedef void (*multiphysics_pointer)
-                (void*, SP_vector , double, double, vec_matrix, SP_matrix);
+                (void*, SP_vector , double, double, vec_matrix);
   typedef std::vector<SP_multiphysics>              vec_multiphysics;
 
 
@@ -226,7 +226,7 @@ private:
   /// DEIM online stage
   void DEIM_online();
   /// update multiphysics at time step
-  void update_multiphysics(const double t, const double dt, const size_t order, vec_matrix, SP_matrix);
+  void update_multiphysics(const double t, const double dt, const size_t order, vec_matrix);
   /// check flux convergence at each iteration
   bool check_convergence();
 

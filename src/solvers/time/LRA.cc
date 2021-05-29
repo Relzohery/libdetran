@@ -16,7 +16,7 @@ namespace detran_user
 {
 
 //---------------------------------------------------------------------------//
-LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
+LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady)
   : Base(mesh->number_cells(), 2, 2, "LRA_MATERIAL")
   , d_mesh(mesh)
   , d_flag(doingtransport)
@@ -47,44 +47,13 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
   d_physics = new detran::MultiPhysics(1);
   d_physics->variable(0).resize(d_mesh->number_cells(), 300.0);
 
-  rom_flag = rom;
-
   initialize_materials();
-
-//  U_T = U;
-//  vec_dbl &T = d_physics->variable(0);
-//
-//  // project initial condition before
-//  if (rom)
-//  {
-//    callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
-//
-//	for (int i =0; i< d_physics->variable(0).size(); i++)
-//	{
-//	  T_fom[i] = d_physics->variable(0)[i];
-//	}
-//
-//	callow::Vector T_rom_(U_T->number_columns(), 0.0);
-//
-//	U_T->multiply_transpose(T_fom, T_rom_);
-//
-//	d_physics->variable(0).resize(U_T->number_columns(), 0.0);
-//
-//	for (int i=0; i< d_physics->variable(0).size(); i++)
-//	{
-//	  d_physics->variable(0)[i] = T_rom_[i];
-//	}
-//
-//	LRA::DEIM_XS();
-//
-//	T_rom_.print_matlab("T_rom_.txt");
-//  }
 }
 
 //---------------------------------------------------------------------------//
-LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady, bool rom, SP_matrix U)
+LRA::SP_material LRA::Create(SP_mesh mesh, bool flag, bool steady)
 {
-  SP_material p(new LRA(mesh, flag, steady, rom, U));
+  SP_material p(new LRA(mesh, flag, steady));
   return p;
 }
 
@@ -98,7 +67,6 @@ void LRA::set_state(SP_state state)
 //---------------------------------------------------------------------------//
 void LRA::initialize_materials()
 {
-
   for (size_t i = 0; i < d_mesh->number_cells(); ++i)
   {
     size_t m = d_unique_mesh_map[i];
@@ -288,7 +256,7 @@ void LRA::update_P_and_T(double t, double dt)
 }
 
 //---------------------------------------------------------------------------//
-void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_matrix U)
+void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF)
 {
   std::cout << "update p and T  \n";
   // Compute power and temperature.  Note, we "unscale" by keff.
@@ -310,6 +278,7 @@ void LRA::update_P_and_T(SP_vector phi, double t, double dt, vec_matrix TF, SP_m
   }
 }
 
+//---------------------------------------------------------------------------//
 
 void LRA::multipysics_reduced(SP_matrix  U)
 {
@@ -332,39 +301,10 @@ void LRA::multipysics_reduced(SP_matrix  U)
   }
 }
 
-void LRA::DEIM_XS()
-{
-  const char* basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
-  int r = 10;
-
-  DEIM_basis = new callow::MatrixDense(484, r);
-  ROMBasis::GetBasis(basis, DEIM_basis);
-  DEIM D(DEIM_basis, r);
-  D.Search();
-
-  l = D.interpolation_indices();
-
-  Ur_deim = new callow::MatrixDense(r, r);
-  Ur_deim = D.ReducedBasis();
-
-  Ur_deim->print_matlab("lra_reduced_deim.txt");
-
-  LinearSolver::SP_db p(new detran_utilities::InputDB("callow_db"));
-  p->put<std::string>("linear_solver_type", "petsc");
-  p->put<std::string>("pc_type", "petsc_pc");
-  p->put<double>("linear_solver_rtol",              1e-16);
-  p->put<std::string>("petsc_pc_type",                      "lu");
-  p->put<int>("linear_solver_maxit",                   1000);
-  p->put<int>("linear_solver_monitor_level", 0);
-  p->put<int>("linear_solver_monitor_diverge", 0);
-  d_solver_deim = LinearSolverCreator::Create(p);
-
-  d_solver_deim->set_operators(Ur_deim, p);
-}
+//---------------------------------------------------------------------------//
 
 void LRA::set_DEIM(SP_matrix DEIM_basis_)
 {
- std::cout << "setting DEIM  \n";
 
   DEIM_basis = DEIM_basis_;
   int r_deim = DEIM_basis->number_columns();
@@ -389,17 +329,15 @@ void LRA::set_DEIM(SP_matrix DEIM_basis_)
   d_solver_deim = LinearSolverCreator::Create(p);
 
   d_solver_deim->set_operators(Ur_deim, p);
-
-  std::cout << "DEIM set  \n";
 }
 
+//---------------------------------------------------------------------------//
 
 void LRA::set_ROM(SP_matrix U)
 {
-
-  std::cout  << "setting ROM \n";
   U_T = U;
   rom_flag = true;
+
   callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
 
   for (int i =0; i< d_physics->variable(0).size(); i++)
@@ -417,9 +355,6 @@ void LRA::set_ROM(SP_matrix U)
   {
     d_physics->variable(0)[i] = T_rom_[i];
   }
-
-  std::cout << "rom set \n";
-  //LRA::DEIM_XS();
 }
 
 } // end namespace detran_user
