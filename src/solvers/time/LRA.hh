@@ -71,7 +71,6 @@ public:
   typedef detran::TimeDependentMaterial             Base;
   typedef detran_geometry::Mesh::SP_mesh            SP_mesh;
   typedef detran::MultiPhysics::SP_multiphysics     SP_multiphysics;
-  typedef std::vector<callow::Vector>               flux_vec;
   typedef callow::Vector::SP_vector                 SP_vector;
   typedef MatrixDense::SP_matrix                    SP_matrix;
   typedef std::vector<SP_matrix>                    vec_matrix;
@@ -140,24 +139,20 @@ public:
   double d_A;
   /// Store the current time for iteration purposes
   double d_current_time;
-
-  SP_vector T_rom;
-
+  /// temperature basis matrix
   SP_matrix U_T;
-
- bool rom_flag;
-
- int * l;
-
- SP_matrix Ur_deim;
-
- SP_matrix DEIM_basis;
-
-
- SP_vector b;
-
- SP_vector d_x_deim;
-
+  /// rom flag
+  bool rom_flag;
+  /// DEIM interpolation indices
+  int * l;
+  /// DEIM reduced matrix
+  SP_matrix Ur_deim;
+  /// DEIM basis
+  SP_matrix DEIM_basis;
+  /// vector of temperature at selected DEIM indices
+  SP_vector d_T_deim;
+  /// DEIM coefficient vector
+  SP_vector d_c_deim;
  /// Linear solver
   SP_solver d_solver;
   /// linear solver DEIM
@@ -177,6 +172,10 @@ public:
   void update_impl();
 
   void DEIM_XS();
+
+  void set_ROM(SP_matrix U_T);
+
+  void set_DEIM(SP_matrix U_deim);
 
 };
 

@@ -314,7 +314,6 @@ void TransientSolver::step(int step, double t)
   for (int cell=0; cell<d_num_cells; cell++)
   {
     XS->insert(cell, step, d_material->sigma_a(cell, 0));
-
   }
 
   Refersh_Operator();
