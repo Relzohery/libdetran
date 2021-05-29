@@ -51,34 +51,34 @@ LRA::LRA(SP_mesh mesh, bool doingtransport, bool steady, bool rom, SP_matrix U)
 
   initialize_materials();
 
-  U_T = U;
-  vec_dbl &T = d_physics->variable(0);
-
-  // project initial condition before
-  if (rom)
-  {
-    callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
-
-	for (int i =0; i< d_physics->variable(0).size(); i++)
-	{
-	  T_fom[i] = d_physics->variable(0)[i];
-	}
-
-	callow::Vector T_rom_(U_T->number_columns(), 0.0);
-
-	U_T->multiply_transpose(T_fom, T_rom_);
-
-	d_physics->variable(0).resize(U_T->number_columns(), 0.0);
-
-	for (int i=0; i< d_physics->variable(0).size(); i++)
-	{
-	  d_physics->variable(0)[i] = T_rom_[i];
-	}
-
-	LRA::DEIM_XS();
-
-	T_rom_.print_matlab("T_rom_.txt");
-  }
+//  U_T = U;
+//  vec_dbl &T = d_physics->variable(0);
+//
+//  // project initial condition before
+//  if (rom)
+//  {
+//    callow::Vector T_fom(d_physics->variable(0).size(), 0.0);
+//
+//	for (int i =0; i< d_physics->variable(0).size(); i++)
+//	{
+//	  T_fom[i] = d_physics->variable(0)[i];
+//	}
+//
+//	callow::Vector T_rom_(U_T->number_columns(), 0.0);
+//
+//	U_T->multiply_transpose(T_fom, T_rom_);
+//
+//	d_physics->variable(0).resize(U_T->number_columns(), 0.0);
+//
+//	for (int i=0; i< d_physics->variable(0).size(); i++)
+//	{
+//	  d_physics->variable(0)[i] = T_rom_[i];
+//	}
+//
+//	LRA::DEIM_XS();
+//
+//	T_rom_.print_matlab("T_rom_.txt");
+//  }
 }
 
 //---------------------------------------------------------------------------//

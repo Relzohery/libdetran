@@ -489,8 +489,8 @@ int test_LRA_DEIM(int argc, char *argv[])
 
   mat_lra = mat;
 
-  //mat_lra->set_ROM(basis_T);
-  //mat_lra->set_DEIM(DEIM_basis);
+  mat_lra->set_ROM(basis_T);
+  mat_lra->set_DEIM(DEIM_basis);
 
 
   //-------------------------------------------------------------------------//
