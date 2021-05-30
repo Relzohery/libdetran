@@ -439,21 +439,17 @@ void TransientSolver::reconstruct(int step)
 
 void TransientSolver::DEIM_offline()
 {
-   DEIM D(d_deim_basis, r_deim);
-   D.Search();
-   l = D.interpolation_indices();
-   Ur_deim = new callow::MatrixDense(r_deim, r_deim);
-   Ur_deim = D.ReducedBasis();
+  offline_stage O(d_L, d_flux_basis, d_deim_basis, r_deim);
 
-   offline_stage O(d_L, d_flux_basis, d_deim_basis, r_deim);
+  l = O.Interpolation_indices();
+  Ur_deim = new callow::MatrixDense(r_deim, r_deim);
+  Ur_deim = O.ReducedBasis();
 
-   M_L = O.Decompositon();
+  M_L = O.Decompositon();
 
-   //LinearSolverCreator::SP_db db_deim;
+  d_solver_deim = LinearSolverCreator::Create(db);
 
-   d_solver_deim = LinearSolverCreator::Create(db);
-
-   d_solver_deim->set_operators(Ur_deim, d_inp->template get<SP_input>("inner_solver_db"));
+  d_solver_deim->set_operators(Ur_deim, d_inp->template get<SP_input>("deim_solver_db"));
 }
 
 //----------------------------------------------------------------------------//
@@ -479,12 +475,12 @@ void TransientSolver::DEIM_online()
     for (int i=0; i<d_rf; i++)
 	{
 	  for (int j=0; j<d_rf; j++)
-	{
-	  v = (*d_x_deim)[r]*(*M_L[r])(i, j);
-	  d_Lr->insert(i, j, v, 1);
+	  {
+	    v = (*d_x_deim)[r]*(*M_L[r])(i, j);
+	    d_Lr->insert(i, j, v, 1);
+      }
+    }
   }
- }
- }
 }
 //----------------------------------------------------------------------------//
 
