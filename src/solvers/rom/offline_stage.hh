@@ -29,11 +29,16 @@ class offline_stage
 
 	vec_matrix Decompositon();
 
-	int* Interpolation_indices() { return l;};
+	SP_matrixDense ReducedBasis()
+	{
+	  return Ur_deim;
+	}
+
+
+	int* Interpolation_indices() {return l;};
 	int* target_rows() {return d_target_rows;};
 	int* target_cols() {return d_target_cols;};
 
-	SP_matrixDense Ur_deim;
 
 	void map_indices();
 
@@ -48,10 +53,11 @@ class offline_stage
 	int* d_target_cols;
 	int* l;
     vec_matrix Aq;
-    //SP_matrixDense UD;
     SP_matrix d_operator;
     SP_matrixDense d_U;
     SP_matrixDense d_Uf;
+	SP_matrixDense Ur_deim;
+
 
 };
 
