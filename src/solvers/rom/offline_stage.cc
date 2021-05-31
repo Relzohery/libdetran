@@ -24,22 +24,17 @@ offline_stage::offline_stage(SP_matrix A, SP_matrixDense Uf, SP_matrixDense UD, 
  d_Uf(Uf)
 
 {
-   //Ensure(A->number_nonzeros() == UD->number_rows());
-   int d_n = A->number_columns();
-   int d_m = A->number_rows();
+  //Ensure(A->number_nonzeros() == UD->number_rows());
+  int d_n = A->number_columns();
+  int d_m = A->number_rows();
 
-   DEIM D(d_U, d_r);
-   D.Search();
-   Ur_deim = D.ReducedBasis();
-   l = D.interpolation_indices();
+  DEIM D(d_U, d_r);
+  D.Search();
 
-//   for (int i=0; i<r ; i++)
-//   {
-//	   std::cout << l[i] << "\n";
-//   }
-//   Interpolation_indices = D.interpolation_indices();
-//   Ur_deim = new callow::MatrixDense(d_r, d_r);
-//   Ur_deim = D.ReducedBasis();
+  l = D.interpolation_indices();
+
+  Ur_deim = new callow::MatrixDense(d_r, d_r);
+  Ur_deim = D.ReducedBasis();
 }
 
 vec_matrix offline_stage::Decompositon()
