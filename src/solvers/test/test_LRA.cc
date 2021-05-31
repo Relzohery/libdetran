@@ -230,6 +230,7 @@ InputDB::SP_input inp(new InputDB("LRA benchmark"));
   rom_db->put<int>("petsc_pc_factor_levels",          3);
   db->put<double>("eigen_solver_tol",                   1e-15);
   inp->put<InputDB::SP_input>("inner_solver_db",        db);
+  inp->put<InputDB::SP_input>("deim_solver_db",        rom_db);
   inp->put<InputDB::SP_input>("outer_solver_db",        db);
   inp->put<InputDB::SP_input>("eigen_solver_db",        db);
   inp->put<InputDB::SP_input>("rom_solver_db",          db);
@@ -329,6 +330,8 @@ int test_LRA_ROM(int argc, char *argv[])
 
   typedef TimeStepper<_2D> TS_2D;
   typedef callow::MatrixDense::SP_matrix            SP_matrix;
+  typedef callow::Vector::SP_vector                 SP_vector;
+
 
 
    InputDB::SP_input inp = get_input();
@@ -339,11 +342,11 @@ int test_LRA_ROM(int argc, char *argv[])
   TS_2D::SP_mesh mesh = get_mesh(2);
 
   //-------------------------------------------------------------------------//
-  // MATERIAL
+  // ROM Basis
   //-------------------------------------------------------------------------//
 
   const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
-  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_coarse_50";
   const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
   const char* XS_basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
 
@@ -430,7 +433,11 @@ int test_LRA_ROM(int argc, char *argv[])
 
   SP_matrix flux;
   flux = R.flux();
-  flux->print_matlab("lra_flux_rom");
+  flux->print_matlab("lra_flux_rom_coarse.txt");
+
+  SP_vector power;
+  power = R.power();
+  power->print_matlab("lra_power_rom_coarse.txt");
 
   return 0;
 }
@@ -442,6 +449,8 @@ int test_LRA_DEIM(int argc, char *argv[])
 
   typedef TimeStepper<_2D> TS_2D;
   typedef callow::MatrixDense::SP_matrix            SP_matrix;
+  typedef callow::Vector::SP_vector                 SP_vector;
+
 
 
    InputDB::SP_input inp = get_input();
@@ -456,15 +465,15 @@ int test_LRA_DEIM(int argc, char *argv[])
   //-------------------------------------------------------------------------//
 
   const char* temperature_basis = "./../../../source/src/solvers/test/rom_basis/lra_temperature_basis";
-  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_50";
-  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_30";
+  const char* flux_basis = "./../../../source/src/solvers/test/rom_basis/lra_flux_fom_basis_coarse_50";
+  const char* precursors_basis = "./../../../source/src/solvers/test/rom_basis/lra_precursors_basis_coarse_30";
   const char* XS_basis = "./../../../source/src/solvers/test/rom_basis/LRA_cross_section_basis";
   const char* deim_basis = "./../../../source/src/solvers/test/rom_basis/LRA_deim_basis_";
 
   int rc = 30;
   int rf = 50;
   int n = 484;
-  int r_deim = 10;
+  int r_deim = 15;
   int nnz_diffusion = 5148;
 
   SP_matrix basis_T;
@@ -480,7 +489,7 @@ int test_LRA_DEIM(int argc, char *argv[])
   ROMBasis::GetBasis(precursors_basis, basis_p);
 
   SP_matrix basis_XS;
-  basis_XS = new callow::MatrixDense(n, r_deim);
+  basis_XS = new callow::MatrixDense(n, 10);
   ROMBasis::GetBasis(XS_basis, basis_XS);
 
 
@@ -551,7 +560,11 @@ int test_LRA_DEIM(int argc, char *argv[])
 
   SP_matrix flux;
   flux = R.flux();
-  flux->print_matlab("lra_flux_deim");
+  flux->print_matlab("lra_flux_deim_coarse.txt");
+
+  SP_vector power;
+  power = R.power();
+  power->print_matlab("lra_power_deim_coarse.txt");
 
   return 0;
 }
