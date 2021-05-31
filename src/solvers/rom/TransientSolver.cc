@@ -432,7 +432,10 @@ void TransientSolver::reconstruct(int step)
   const vec_int &mat_map = d_mesh->mesh_map("MATERIAL");
   int m;
 
-  int rg = d_rf/d_number_groups;
+  for (int cell=0; cell<d_mesh->number_cells(); cell++)
+  (*d_power)[step+1] += phi[cell]*d_material->sigma_f(m, 0) +
+      	                phi[cell + d_num_cells]*d_material->sigma_f(m, 1) ;
+
 }
 
 //------------------------------------------------------------------------------//
@@ -442,6 +445,9 @@ void TransientSolver::DEIM_offline()
   offline_stage O(d_L, d_flux_basis, d_deim_basis, r_deim);
 
   l = O.Interpolation_indices();
+
+  O.map_indices();
+
   Ur_deim = new callow::MatrixDense(r_deim, r_deim);
   Ur_deim = O.ReducedBasis();
 
