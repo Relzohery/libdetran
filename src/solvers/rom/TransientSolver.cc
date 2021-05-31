@@ -433,8 +433,8 @@ void TransientSolver::reconstruct(int step)
   int m;
 
   for (int cell=0; cell<d_mesh->number_cells(); cell++)
-  (*d_power)[step+1] += phi[cell]*d_material->sigma_f(m, 0) +
-      	                phi[cell + d_num_cells]*d_material->sigma_f(m, 1) ;
+  (*d_power)[step+1] += phi[cell]*d_material->sigma_f(cell, 0) +
+      	                phi[cell + d_num_cells]*d_material->sigma_f(cell, 1) ;
 
 }
 
